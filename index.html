@@ -2,83 +2,259 @@
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI 智能記帳本 - GLM-4V 專版</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AI 智能記帳 PRO - 分頁版</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root { --primary: #6366f1; --secondary: #a855f7; }
-        body { background-color: #f8fafc; min-height: 100vh; font-family: system-ui, -apple-system, sans-serif; }
+        body { background-color: #f8fafc; min-height: 100vh; font-family: system-ui, -apple-system, sans-serif; overflow-x: hidden; }
         .glass-card { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 1.25rem; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05); }
+        .nav-item { transition: all 0.3s ease; }
+        .nav-item.active { color: var(--primary); transform: translateY(-4px); }
+        .nav-item.active svg { filter: drop-shadow(0 0 5px rgba(99, 102, 241, 0.4)); }
+        .page { display: none; animation: fadeIn 0.3s ease-out; }
+        .page.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .loading-spinner { border: 3px solid #f3f3f3; border-top: 3px solid var(--primary); border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
-<body class="p-4 md:p-8">
-    <div class="max-w-md mx-auto">
-        <header class="mb-8 text-center">
-            <h1 class="text-3xl font-extrabold text-gray-900 tracking-tight">AI 智能記帳</h1>
-            <p class="text-gray-500 mt-2 font-medium">使用 GLM-4V-Flash 視覺模型</p>
+<body class="pb-24">
+    <div class="max-w-md mx-auto p-4 md:p-6">
+        
+        <!-- 頁面標題 -->
+        <header class="mb-6 flex justify-between items-center px-2">
+            <h1 id="pageTitle" class="text-2xl font-black text-gray-900 tracking-tight">儀表板</h1>
+            <div class="flex gap-2">
+                <button onclick="setBudget()" class="p-2 bg-white rounded-full shadow-sm text-gray-500 hover:text-indigo-600 transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37a1.724 1.724 0 002.572-1.065z" />
+                    </svg>
+                </button>
+            </div>
         </header>
 
-        <!-- 總額卡片 -->
-        <div class="glass-card p-6 mb-6 bg-gradient-to-br from-indigo-600 to-purple-700 text-white shadow-xl border-none">
-            <p class="text-indigo-100 text-xs font-bold uppercase tracking-wider">本月總支出</p>
-            <h2 id="totalAmount" class="text-4xl font-black mt-1">$ 0</h2>
-        </div>
-
-        <!-- 操作區 -->
-        <div class="glass-card p-6 mb-8">
-            <div class="space-y-4">
-                <input type="file" id="receiptInput" accept="image/*" class="hidden">
-                <button onclick="document.getElementById('receiptInput').click()" 
-                        class="w-full py-6 px-4 bg-gray-50 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 hover:border-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all flex flex-col items-center justify-center gap-2 group">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                    </svg>
-                    <span class="font-bold text-lg">拍攝或選擇單據</span>
-                </button>
-
-                <div id="loadingArea" class="hidden flex items-center justify-center gap-3 p-5 bg-indigo-50 rounded-xl text-indigo-700 animate-pulse">
-                    <div class="loading-spinner"></div>
-                    <span class="font-bold text-sm">GLM-4V 正在識別...</span>
-                </div>
-
-                <div id="resultPreview" class="hidden p-5 bg-white rounded-xl border-2 border-indigo-100 shadow-inner space-y-4">
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="text-[10px] text-gray-400 font-bold uppercase">商店</label>
-                            <input type="text" id="tempStore" class="w-full bg-transparent border-b-2 border-gray-100 focus:border-indigo-500 outline-none py-1 font-bold">
-                        </div>
-                        <div>
-                            <label class="text-[10px] text-gray-400 font-bold uppercase">金額</label>
-                            <input type="number" id="tempAmount" class="w-full bg-transparent border-b-2 border-gray-100 focus:border-indigo-500 outline-none py-1 font-bold">
-                        </div>
+        <!-- 分頁 1: 儀表板 -->
+        <section id="page-dashboard" class="page active space-y-6">
+            <div class="glass-card p-6 bg-gradient-to-br from-indigo-600 to-purple-700 text-white shadow-xl border-none">
+                <p class="text-indigo-100 text-xs font-bold uppercase tracking-wider">本月總支出</p>
+                <h2 id="totalAmount" class="text-4xl font-black mt-1">$ 0</h2>
+                <div class="mt-6 space-y-2">
+                    <div class="flex justify-between text-xs font-bold text-indigo-100">
+                        <span>預算消耗</span>
+                        <span id="budgetPercent">0%</span>
                     </div>
-                    <button id="saveBtn" class="w-full bg-indigo-600 text-white py-3 rounded-lg font-bold hover:bg-indigo-700 transition-all shadow-lg">確認儲存</button>
+                    <div class="w-full bg-white/20 rounded-full h-2 overflow-hidden">
+                        <div id="budgetBar" class="bg-white h-full transition-all duration-500" style="width: 0%"></div>
+                    </div>
+                    <p id="budgetStatus" class="text-[10px] text-indigo-100 italic">剩餘預算：計算中...</p>
                 </div>
             </div>
-        </div>
 
-        <!-- 歷史 -->
-        <div id="historyList" class="space-y-3 pb-10"></div>
+            <div class="glass-card p-5">
+                <h3 class="text-sm font-bold text-gray-700 mb-4 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" />
+                    </svg>
+                    消費佔比分析
+                </h3>
+                <div class="relative h-48">
+                    <canvas id="categoryChart"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- 分頁 2: 掃描記帳 -->
+        <section id="page-scan" class="page space-y-6">
+            <div class="glass-card p-8 text-center">
+                <input type="file" id="receiptInput" accept="image/*" class="hidden">
+                <div id="scanPrompt" onclick="document.getElementById('receiptInput').click()" class="cursor-pointer group">
+                    <div class="w-24 h-24 bg-indigo-50 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                    </div>
+                    <h3 class="text-lg font-bold text-gray-800">點擊掃描單據</h3>
+                    <p class="text-sm text-gray-400 mt-2">支持發票、收據、手寫單</p>
+                </div>
+
+                <div id="loadingArea" class="hidden mt-6 p-4 bg-indigo-50 rounded-xl flex flex-col items-center gap-3">
+                    <div class="loading-spinner"></div>
+                    <p class="text-sm font-bold text-indigo-600">GLM-4V-Flash 正在解析中...</p>
+                </div>
+            </div>
+
+            <!-- 辨識編輯區 -->
+            <div id="resultPreview" class="hidden glass-card p-6 animate-fadeIn">
+                <div class="space-y-4">
+                    <div class="border-b pb-2">
+                        <label class="text-[10px] text-indigo-400 font-black uppercase">商店名稱</label>
+                        <input type="text" id="tempStore" class="w-full text-xl font-bold outline-none bg-transparent">
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="border-b pb-2">
+                            <label class="text-[10px] text-indigo-400 font-black uppercase">金額</label>
+                            <input type="number" id="tempAmount" class="w-full text-xl font-bold outline-none bg-transparent">
+                        </div>
+                        <div class="border-b pb-2">
+                            <label class="text-[10px] text-indigo-400 font-black uppercase">類別</label>
+                            <select id="tempCategory" class="w-full text-lg font-bold outline-none bg-transparent">
+                                <option value="餐飲">餐飲</option>
+                                <option value="交通">交通</option>
+                                <option value="購物">購物</option>
+                                <option value="娛樂">娛樂</option>
+                                <option value="居家">居家</option>
+                                <option value="其他">其他</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button id="saveBtn" class="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold shadow-lg shadow-indigo-200 active:scale-95 transition-transform">
+                        確認入帳
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- 分頁 3: 歷史明細 -->
+        <section id="page-history" class="page space-y-4">
+            <div class="flex justify-between items-center px-1">
+                <p class="text-sm font-bold text-gray-500">共 <span id="recordCount">0</span> 筆紀錄</p>
+                <button onclick="exportCSV()" class="text-xs font-bold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full hover:bg-indigo-100 transition-colors">導出 CSV</button>
+            </div>
+            <div id="historyList" class="space-y-3"></div>
+        </section>
+
+        <!-- 底部導航欄 -->
+        <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-6 py-3 flex justify-between items-center z-50 shadow-2xl">
+            <button onclick="switchPage('dashboard', '儀表板')" class="nav-item flex flex-col items-center gap-1 active text-gray-400" id="nav-dashboard">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                </svg>
+                <span class="text-[10px] font-bold">概覽</span>
+            </button>
+            
+            <button onclick="switchPage('scan', '智能辨識')" class="nav-item flex flex-col items-center -mt-8 bg-indigo-600 p-4 rounded-full text-white shadow-xl shadow-indigo-200" id="nav-scan">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                </svg>
+            </button>
+
+            <button onclick="switchPage('history', '歷史清單')" class="nav-item flex flex-col items-center gap-1 text-gray-400" id="nav-history">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                </svg>
+                <span class="text-[10px] font-bold">明細</span>
+            </button>
+        </nav>
     </div>
 
     <script>
-        // --- 重要：請確認您的 API 金鑰 ---
         const apiKey = "272f193352024ce99416a7128bc499f6.QADLgmGclBxYOWYr";
-        
-        // 智譜 AI GLM-4V 的 OpenAI 兼容端點
         const modelEndpoint = "https://open.bigmodel.cn/api/paas/v4/chat/completions";
         
         let records = JSON.parse(localStorage.getItem('expenseRecords') || '[]');
-        renderRecords();
+        let monthlyBudget = parseFloat(localStorage.getItem('monthlyBudget') || '5000');
+        let chartInstance = null;
 
+        // --- 分頁切換邏輯 ---
+        function switchPage(pageId, title) {
+            // 隱藏所有頁面
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            // 顯示當前頁面
+            document.getElementById(`page-${pageId}`).classList.add('active');
+            // 更新導航列 UI
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            document.getElementById(`nav-${pageId}`).classList.add('active');
+            // 更新標題
+            document.getElementById('pageTitle').innerText = title;
+
+            if (pageId === 'dashboard') renderDashboard();
+            if (pageId === 'history') renderHistory();
+        }
+
+        // --- 核心初始化 ---
+        window.onload = () => {
+            initChart();
+            renderDashboard();
+        };
+
+        // --- 數據渲染 ---
+        function renderDashboard() {
+            let total = 0;
+            const categoryTotals = { "餐飲": 0, "交通": 0, "購物": 0, "娛樂": 0, "居家": 0, "其他": 0 };
+            
+            records.forEach(r => {
+                total += r.amount;
+                if(categoryTotals.hasOwnProperty(r.category)) {
+                    categoryTotals[r.category] += r.amount;
+                }
+            });
+
+            document.getElementById('totalAmount').innerText = `$ ${total.toLocaleString()}`;
+            
+            // 預算更新
+            const percent = Math.min((total / monthlyBudget) * 100, 100);
+            document.getElementById('budgetBar').style.width = `${percent}%`;
+            document.getElementById('budgetPercent').innerText = `${Math.round(percent)}%`;
+            document.getElementById('budgetStatus').innerText = `剩餘預算：$${Math.max(monthlyBudget - total, 0).toLocaleString()}`;
+            
+            if (percent >= 90) document.getElementById('budgetBar').className = "bg-red-400 h-full transition-all";
+            else document.getElementById('budgetBar').className = "bg-white h-full transition-all";
+
+            updateChart(categoryTotals);
+        }
+
+        function renderHistory() {
+            const list = document.getElementById('historyList');
+            document.getElementById('recordCount').innerText = records.length;
+            list.innerHTML = '';
+
+            if (records.length === 0) {
+                list.innerHTML = `<div class="text-center py-20 text-gray-300">目前尚無消費紀錄</div>`;
+                return;
+            }
+
+            records.forEach(r => {
+                const div = document.createElement('div');
+                div.className = 'glass-card p-4 flex justify-between items-center';
+                div.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center text-lg shadow-inner">
+                            ${getEmoji(r.category)}
+                        </div>
+                        <div>
+                            <p class="font-bold text-gray-800">${r.store}</p>
+                            <p class="text-[10px] text-gray-400 font-medium">${r.date}</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <span class="font-black text-indigo-600">$${r.amount.toLocaleString()}</span>
+                        <button onclick="deleteRecord(${r.id})" class="text-gray-300 hover:text-red-400">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                        </button>
+                    </div>
+                `;
+                list.appendChild(div);
+            });
+        }
+
+        function getEmoji(cat) {
+            const map = { "餐飲": "🍔", "交通": "🚗", "購物": "🛍️", "娛樂": "🎮", "居家": "🏠", "其他": "📦" };
+            return map[cat] || "💰";
+        }
+
+        // --- AI 辨識邏輯 ---
         document.getElementById('receiptInput').addEventListener('change', async (e) => {
             const file = e.target.files[0];
             if (!file) return;
 
             document.getElementById('loadingArea').classList.remove('hidden');
             document.getElementById('resultPreview').classList.add('hidden');
+            document.getElementById('scanPrompt').classList.add('opacity-30');
 
             try {
                 const base64Data = await compressImage(file);
@@ -89,53 +265,46 @@
                 if (result) {
                     document.getElementById('tempStore').value = result.store;
                     document.getElementById('tempAmount').value = result.amount;
+                    document.getElementById('tempCategory').value = result.category || "其他";
                     document.getElementById('resultPreview').classList.remove('hidden');
                 }
-            } catch (error) {
-                console.error(error);
-                alert("辨識失敗: " + error.message);
+            } catch (err) {
+                alert("辨識錯誤：" + err.message);
             } finally {
                 document.getElementById('loadingArea').classList.add('hidden');
+                document.getElementById('scanPrompt').classList.remove('opacity-30');
             }
         });
 
         async function fetchGLM4V(base64Image) {
+            const prompt = `請分析此圖並提取：1.商店名稱 2.最終總金額 3.推測類別(餐飲、交通、購物、娛樂、居家、或其他)。直接輸出JSON格式，例如：{"store": "全家", "amount": 120, "category": "購物"}`;
+            
             const payload = {
-                model: "glm-4v-flash", // 確保使用正確的模型代碼
-                messages: [
-                    {
-                        role: "user",
-                        content: [
-                            { type: "text", text: "請辨識這張圖片中的『商店名稱』與『結帳總金額』。請直接以 JSON 格式回傳：{\"store\": \"名稱\", \"amount\": 數字}，不要回傳任何其他說明文字。" },
-                            { type: "image_url", image_url: { url: `data:image/jpeg;base64,${base64Image}` } }
-                        ]
-                    }
-                ],
+                model: "glm-4v-flash",
+                messages: [{
+                    role: "user",
+                    content: [
+                        { type: "text", text: prompt },
+                        { type: "image_url", image_url: { url: `data:image/jpeg;base64,${base64Image}` } }
+                    ]
+                }],
                 temperature: 0.1
             };
 
-            const response = await fetch(modelEndpoint, {
+            const res = await fetch(modelEndpoint, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${apiKey}`
-                },
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
                 body: JSON.stringify(payload)
             });
 
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error?.message || "網路錯誤");
-            }
-
-            const data = await response.json();
-            let content = data.choices[0].message.content;
-            
-            // 清理 JSON
-            content = content.replace(/```json/g, '').replace(/```/g, '').trim();
-            return JSON.parse(content);
+            if (!res.ok) throw new Error("API 請求失敗");
+            const data = await res.json();
+            let text = data.choices[0].message.content;
+            text = text.replace(/```json/g, '').replace(/```/g, '').trim();
+            return JSON.parse(text);
         }
 
+        // --- 功能函數 ---
         function compressImage(file) {
             return new Promise((resolve) => {
                 const reader = new FileReader();
@@ -145,10 +314,10 @@
                     img.src = e.target.result;
                     img.onload = () => {
                         const canvas = document.createElement('canvas');
-                        const maxSide = 1200;
+                        const max = 1200;
                         let w = img.width, h = img.height;
-                        if (w > h && w > maxSide) { h *= maxSide / w; w = maxSide; }
-                        else if (h > maxSide) { w *= maxSide / h; h = maxSide; }
+                        if (w > h && w > max) { h *= max / w; w = max; }
+                        else if (h > max) { w *= max / h; h = max; }
                         canvas.width = w; canvas.height = h;
                         canvas.getContext('2d').drawImage(img, 0, 0, w, h);
                         resolve(canvas.toDataURL('image/jpeg', 0.8));
@@ -160,25 +329,90 @@
         document.getElementById('saveBtn').onclick = () => {
             const store = document.getElementById('tempStore').value;
             const amount = parseFloat(document.getElementById('tempAmount').value);
+            const category = document.getElementById('tempCategory').value;
             if (!store || isNaN(amount)) return;
-            records.unshift({ id: Date.now(), store, amount, date: new Date().toLocaleString() });
+
+            records.unshift({
+                id: Date.now(),
+                store,
+                amount,
+                category,
+                date: new Date().toLocaleString('zh-TW', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+            });
+
             localStorage.setItem('expenseRecords', JSON.stringify(records));
-            renderRecords();
             document.getElementById('resultPreview').classList.add('hidden');
+            switchPage('dashboard', '儀表板');
+            showToast("入帳成功！");
         };
 
-        function renderRecords() {
-            const list = document.getElementById('historyList');
-            list.innerHTML = '';
-            let total = 0;
-            records.forEach(r => {
-                total += r.amount;
-                const div = document.createElement('div');
-                div.className = 'glass-card p-4 flex justify-between items-center';
-                div.innerHTML = `<div><p class="font-bold">${r.store}</p><p class="text-xs text-gray-400">${r.date}</p></div><span class="font-black text-indigo-600">$${r.amount}</span>`;
-                list.appendChild(div);
+        function setBudget() {
+            const b = prompt("請輸入每月預算：", monthlyBudget);
+            if (b && !isNaN(parseFloat(b))) {
+                monthlyBudget = parseFloat(b);
+                localStorage.setItem('monthlyBudget', monthlyBudget);
+                renderDashboard();
+            }
+        }
+
+        function deleteRecord(id) {
+            if (confirm("刪除此筆紀錄？")) {
+                records = records.filter(r => r.id !== id);
+                localStorage.setItem('expenseRecords', JSON.stringify(records));
+                renderHistory();
+            }
+        }
+
+        function exportCSV() {
+            if (records.length === 0) return;
+            let csv = "日期,商店,類別,金額\n";
+            records.forEach(r => csv += `${r.date},${r.store},${r.category},${r.amount}\n`);
+            const blob = new Blob(["\ufeff" + csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = "支出紀錄.csv";
+            link.click();
+        }
+
+        // --- 圖表邏輯 ---
+        function initChart() {
+            const ctx = document.getElementById('categoryChart').getContext('2d');
+            chartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        data: [],
+                        backgroundColor: ['#6366f1', '#a855f7', '#ec4899', '#f59e0b', '#10b981', '#94a3b8'],
+                        hoverOffset: 10,
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'right', labels: { boxWidth: 10, font: { size: 10, weight: 'bold' } } }
+                    },
+                    cutout: '70%'
+                }
             });
-            document.getElementById('totalAmount').innerText = `$ ${total.toLocaleString()}`;
+        }
+
+        function updateChart(totals) {
+            const labels = Object.keys(totals).filter(k => totals[k] > 0);
+            const data = labels.map(k => totals[k]);
+            chartInstance.data.labels = labels;
+            chartInstance.data.datasets[0].data = data;
+            chartInstance.update();
+        }
+
+        function showToast(msg) {
+            const t = document.createElement('div');
+            t.className = "fixed bottom-28 left-1/2 -translate-x-1/2 bg-gray-900 text-white px-6 py-2 rounded-full text-xs font-bold shadow-2xl animate-bounce";
+            t.innerText = msg;
+            document.body.appendChild(t);
+            setTimeout(() => t.remove(), 2000);
         }
     </script>
 </body>
