@@ -3,327 +3,182 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI 智能記帳本</title>
+    <title>AI 智能記帳本 - GLM-4V 專版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        :root {
-            --primary: #6366f1;
-            --secondary: #a855f7;
-        }
-        body {
-            background-color: #f8fafc;
-            min-height: 100vh;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-        }
-        .glass-card {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            border-radius: 1.25rem;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
-        }
-        .loading-spinner {
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid var(--primary);
-            border-radius: 50%;
-            width: 24px;
-            height: 24px;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        .record-item {
-            transition: all 0.2s ease-in-out;
-        }
-        .record-item:hover {
-            transform: translateX(4px);
-            background-color: #ffffff;
-        }
+        :root { --primary: #6366f1; --secondary: #a855f7; }
+        body { background-color: #f8fafc; min-height: 100vh; font-family: system-ui, -apple-system, sans-serif; }
+        .glass-card { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 1.25rem; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05); }
+        .loading-spinner { border: 3px solid #f3f3f3; border-top: 3px solid var(--primary); border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body class="p-4 md:p-8">
     <div class="max-w-md mx-auto">
         <header class="mb-8 text-center">
             <h1 class="text-3xl font-extrabold text-gray-900 tracking-tight">AI 智能記帳</h1>
-            <p class="text-gray-500 mt-2 font-medium">Model: GLM-4V-Flash 驅動</p>
+            <p class="text-gray-500 mt-2 font-medium">使用 GLM-4V-Flash 視覺模型</p>
         </header>
 
         <!-- 總額卡片 -->
         <div class="glass-card p-6 mb-6 bg-gradient-to-br from-indigo-600 to-purple-700 text-white shadow-xl border-none">
-            <div class="flex justify-between items-start">
-                <div>
-                    <p class="text-indigo-100 text-xs font-bold uppercase tracking-wider">本月總支出</p>
-                    <h2 id="totalAmount" class="text-4xl font-black mt-1">$ 0</h2>
-                </div>
-                <div class="bg-white/20 p-2 rounded-lg">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                </div>
-            </div>
+            <p class="text-indigo-100 text-xs font-bold uppercase tracking-wider">本月總支出</p>
+            <h2 id="totalAmount" class="text-4xl font-black mt-1">$ 0</h2>
         </div>
 
         <!-- 操作區 -->
         <div class="glass-card p-6 mb-8">
             <div class="space-y-4">
-                <div>
-                    <label class="block text-sm font-semibold text-gray-600 mb-3">上傳單據 (發票、收據或手寫單)</label>
-                    <input type="file" id="receiptInput" accept="image/*" class="hidden">
-                    <button onclick="document.getElementById('receiptInput').click()" 
-                            class="w-full py-4 px-4 bg-gray-50 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 hover:border-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all flex flex-col items-center justify-center gap-2 group">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                        </svg>
-                        <span class="font-bold">拍攝或選取照片</span>
-                    </button>
-                </div>
+                <input type="file" id="receiptInput" accept="image/*" class="hidden">
+                <button onclick="document.getElementById('receiptInput').click()" 
+                        class="w-full py-6 px-4 bg-gray-50 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 hover:border-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all flex flex-col items-center justify-center gap-2 group">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                    </svg>
+                    <span class="font-bold text-lg">拍攝或選擇單據</span>
+                </button>
 
                 <div id="loadingArea" class="hidden flex items-center justify-center gap-3 p-5 bg-indigo-50 rounded-xl text-indigo-700 animate-pulse">
                     <div class="loading-spinner"></div>
-                    <span class="font-bold text-sm">GLM-4V-Flash 正在解析單據...</span>
+                    <span class="font-bold text-sm">GLM-4V 正在識別...</span>
                 </div>
 
                 <div id="resultPreview" class="hidden p-5 bg-white rounded-xl border-2 border-indigo-100 shadow-inner space-y-4">
-                    <h4 class="text-xs font-black text-indigo-600 uppercase">辨識結果 (可微調)</h4>
                     <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <label class="text-[10px] text-gray-400 font-bold uppercase">商店名稱</label>
-                            <input type="text" id="tempStore" class="w-full bg-transparent border-b-2 border-gray-100 focus:border-indigo-500 outline-none py-1 font-bold text-gray-800">
+                            <label class="text-[10px] text-gray-400 font-bold uppercase">商店</label>
+                            <input type="text" id="tempStore" class="w-full bg-transparent border-b-2 border-gray-100 focus:border-indigo-500 outline-none py-1 font-bold">
                         </div>
                         <div>
-                            <label class="text-[10px] text-gray-400 font-bold uppercase">總計金額</label>
-                            <input type="number" id="tempAmount" class="w-full bg-transparent border-b-2 border-gray-100 focus:border-indigo-500 outline-none py-1 font-bold text-gray-800">
+                            <label class="text-[10px] text-gray-400 font-bold uppercase">金額</label>
+                            <input type="number" id="tempAmount" class="w-full bg-transparent border-b-2 border-gray-100 focus:border-indigo-500 outline-none py-1 font-bold">
                         </div>
                     </div>
-                    <button id="saveBtn" class="w-full bg-indigo-600 text-white py-3 rounded-lg font-bold hover:bg-indigo-700 active:scale-95 transition-all shadow-lg shadow-indigo-200">
-                        確認並儲存紀錄
-                    </button>
+                    <button id="saveBtn" class="w-full bg-indigo-600 text-white py-3 rounded-lg font-bold hover:bg-indigo-700 transition-all shadow-lg">確認儲存</button>
                 </div>
             </div>
         </div>
 
-        <!-- 歷史清單 -->
-        <div class="space-y-4 pb-20">
-            <div class="flex justify-between items-center px-1">
-                <h3 class="font-black text-gray-800 text-lg">最近消費</h3>
-                <button onclick="clearAll()" class="text-xs font-bold text-gray-400 hover:text-red-500 transition-colors">清除所有</button>
-            </div>
-            <div id="historyList" class="space-y-3">
-                <!-- 項目將動態插入 -->
-            </div>
-        </div>
+        <!-- 歷史 -->
+        <div id="historyList" class="space-y-3 pb-10"></div>
     </div>
 
     <script>
-        // API 配置 (此處仍使用預覽環境提供的端點模擬 GLM-4V-Flash 的行為)
+        // --- 重要：請確認您的 API 金鑰 ---
         const apiKey = "272f193352024ce99416a7128bc499f6.QADLgmGclBxYOWYr";
-        const modelEndpoint = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent";
         
-        const receiptInput = document.getElementById('receiptInput');
-        const loadingArea = document.getElementById('loadingArea');
-        const resultPreview = document.getElementById('resultPreview');
-        const historyList = document.getElementById('historyList');
-        const totalAmountDisplay = document.getElementById('totalAmount');
+        // 智譜 AI GLM-4V 的 OpenAI 兼容端點
+        const modelEndpoint = "https://open.bigmodel.cn/api/paas/v4/chat/completions";
         
         let records = JSON.parse(localStorage.getItem('expenseRecords') || '[]');
-
         renderRecords();
 
-        receiptInput.addEventListener('change', async (e) => {
+        document.getElementById('receiptInput').addEventListener('change', async (e) => {
             const file = e.target.files[0];
             if (!file) return;
 
-            loadingArea.classList.remove('hidden');
-            resultPreview.classList.add('hidden');
+            document.getElementById('loadingArea').classList.remove('hidden');
+            document.getElementById('resultPreview').classList.add('hidden');
 
             try {
-                // 針對 Flash 模型進行圖片壓縮優化，確保傳輸穩定
-                const compressedBase64 = await compressImage(file);
-                const rawBase64 = compressedBase64.split(',')[1];
-                const mimeType = "image/jpeg";
-
-                const response = await fetchAI(rawBase64, mimeType);
+                const base64Data = await compressImage(file);
+                const rawBase64 = base64Data.split(',')[1];
                 
-                if (response) {
-                    document.getElementById('tempStore').value = response.store || "未知商店";
-                    document.getElementById('tempAmount').value = response.amount || 0;
-                    resultPreview.classList.remove('hidden');
-                    resultPreview.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                const result = await fetchGLM4V(rawBase64);
+                
+                if (result) {
+                    document.getElementById('tempStore').value = result.store;
+                    document.getElementById('tempAmount').value = result.amount;
+                    document.getElementById('resultPreview').classList.remove('hidden');
                 }
             } catch (error) {
-                console.error('Recognition error:', error);
-                showMessage("辨識失敗。提示：GLM-4V 需要清晰的影像與正確的 API 配置。");
+                console.error(error);
+                alert("辨識失敗: " + error.message);
             } finally {
-                loadingArea.classList.add('hidden');
+                document.getElementById('loadingArea').classList.add('hidden');
             }
         });
 
-        // 圖片處理邏輯
+        async function fetchGLM4V(base64Image) {
+            const payload = {
+                model: "glm-4v-flash", // 確保使用正確的模型代碼
+                messages: [
+                    {
+                        role: "user",
+                        content: [
+                            { type: "text", text: "請辨識這張圖片中的『商店名稱』與『結帳總金額』。請直接以 JSON 格式回傳：{\"store\": \"名稱\", \"amount\": 數字}，不要回傳任何其他說明文字。" },
+                            { type: "image_url", image_url: { url: `data:image/jpeg;base64,${base64Image}` } }
+                        ]
+                    }
+                ],
+                temperature: 0.1
+            };
+
+            const response = await fetch(modelEndpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiKey}`
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error?.message || "網路錯誤");
+            }
+
+            const data = await response.json();
+            let content = data.choices[0].message.content;
+            
+            // 清理 JSON
+            content = content.replace(/```json/g, '').replace(/```/g, '').trim();
+            return JSON.parse(content);
+        }
+
         function compressImage(file) {
             return new Promise((resolve) => {
                 const reader = new FileReader();
                 reader.readAsDataURL(file);
-                reader.onload = (event) => {
+                reader.onload = (e) => {
                     const img = new Image();
-                    img.src = event.target.result;
+                    img.src = e.target.result;
                     img.onload = () => {
                         const canvas = document.createElement('canvas');
-                        let width = img.width;
-                        let height = img.height;
-                        const maxSide = 1280; // GLM 推薦的高清解析度上限
-
-                        if (width > height && width > maxSide) {
-                            height *= maxSide / width;
-                            width = maxSide;
-                        } else if (height > maxSide) {
-                            width *= maxSide / height;
-                            height = maxSide;
-                        }
-
-                        canvas.width = width;
-                        canvas.height = height;
-                        const ctx = canvas.getContext('2d');
-                        ctx.drawImage(img, 0, 0, width, height);
+                        const maxSide = 1200;
+                        let w = img.width, h = img.height;
+                        if (w > h && w > maxSide) { h *= maxSide / w; w = maxSide; }
+                        else if (h > maxSide) { w *= maxSide / h; h = maxSide; }
+                        canvas.width = w; canvas.height = h;
+                        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
                         resolve(canvas.toDataURL('image/jpeg', 0.8));
                     };
                 };
             });
         }
 
-        document.getElementById('saveBtn').addEventListener('click', () => {
-            const store = document.getElementById('tempStore').value.trim();
+        document.getElementById('saveBtn').onclick = () => {
+            const store = document.getElementById('tempStore').value;
             const amount = parseFloat(document.getElementById('tempAmount').value);
-            
-            if (store && !isNaN(amount)) {
-                const newRecord = {
-                    id: Date.now(),
-                    store,
-                    amount,
-                    date: new Date().toLocaleDateString('zh-TW', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
-                };
-                records.unshift(newRecord);
-                saveRecords();
-                renderRecords();
-                resultPreview.classList.add('hidden');
-                receiptInput.value = '';
-                showMessage("已成功紀錄！", "success");
-            } else {
-                showMessage("請確認金額是否正確");
-            }
-        });
-
-        // GLM-4V-Flash API 調用封裝
-        async function fetchAI(base64Image, mimeType) {
-            // 優化後的 Prompt，增加對單據特性的描述
-            const prompt = "請扮演專業的財務 OCR 助手。分析這張圖片，提取商店名稱 (store) 和最終結算金額 (amount)。只回傳 JSON 格式數據，不要有 Markdown 格式符號。例如：{\"store\": \"便利商店\", \"amount\": 150}";
-            
-            const payload = {
-                contents: [{
-                    parts: [
-                        { text: prompt },
-                        { inlineData: { mimeType: mimeType, data: base64Image } }
-                    ]
-                }],
-                generationConfig: {
-                    responseMimeType: "application/json"
-                }
-            };
-
-            let retries = 0;
-            const maxRetries = 3;
-            
-            while (retries < maxRetries) {
-                try {
-                    const res = await fetch(`${modelEndpoint}?key=${apiKey}`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-
-                    if (!res.ok) throw new Error('連線超時');
-
-                    const result = await res.json();
-                    let text = result.candidates?.[0]?.content?.parts?.[0]?.text;
-                    
-                    // 清洗 JSON，防止模型輸出帶有 Markdown 標記
-                    text = text.replace(/```json/g, '').replace(/```/g, '').trim();
-                    
-                    return JSON.parse(text);
-                } catch (e) {
-                    retries++;
-                    await new Promise(r => setTimeout(r, 1000 * retries));
-                }
-            }
-            throw new Error('AI 解析失敗，請手動輸入或重試');
-        }
-
-        function saveRecords() {
+            if (!store || isNaN(amount)) return;
+            records.unshift({ id: Date.now(), store, amount, date: new Date().toLocaleString() });
             localStorage.setItem('expenseRecords', JSON.stringify(records));
-        }
+            renderRecords();
+            document.getElementById('resultPreview').classList.add('hidden');
+        };
 
         function renderRecords() {
-            historyList.innerHTML = '';
+            const list = document.getElementById('historyList');
+            list.innerHTML = '';
             let total = 0;
-
-            records.forEach(record => {
-                total += record.amount;
+            records.forEach(r => {
+                total += r.amount;
                 const div = document.createElement('div');
-                div.className = 'record-item glass-card p-4 flex justify-between items-center border-l-4 border-indigo-500';
-                div.innerHTML = `
-                    <div>
-                        <p class="font-extrabold text-gray-800">${record.store}</p>
-                        <p class="text-[10px] text-gray-400 font-medium">${record.date}</p>
-                    </div>
-                    <div class="flex items-center gap-4">
-                        <span class="font-mono font-black text-indigo-600 text-lg">$${record.amount.toLocaleString()}</span>
-                        <button onclick="deleteRecord(${record.id})" class="text-gray-200 hover:text-red-400 transition-colors">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
-                            </svg>
-                        </button>
-                    </div>
-                `;
-                historyList.appendChild(div);
+                div.className = 'glass-card p-4 flex justify-between items-center';
+                div.innerHTML = `<div><p class="font-bold">${r.store}</p><p class="text-xs text-gray-400">${r.date}</p></div><span class="font-black text-indigo-600">$${r.amount}</span>`;
+                list.appendChild(div);
             });
-
-            totalAmountDisplay.innerText = `$ ${total.toLocaleString()}`;
-            if (records.length === 0) {
-                historyList.innerHTML = `
-                    <div class="text-center py-12 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200">
-                        <p class="text-gray-400 font-bold">歡迎使用！請上傳單據開始</p>
-                    </div>
-                `;
-            }
-        }
-
-        function deleteRecord(id) {
-            records = records.filter(r => r.id !== id);
-            saveRecords();
-            renderRecords();
-        }
-
-        function clearAll() {
-            if (confirm('確定要清空所有紀錄嗎？')) {
-                records = [];
-                saveRecords();
-                renderRecords();
-            }
-        }
-
-        function showMessage(msg, type = "error") {
-            const div = document.createElement('div');
-            const bgColor = type === "success" ? "bg-indigo-600" : "bg-gray-800";
-            div.className = `fixed bottom-8 left-1/2 -translate-x-1/2 ${bgColor} text-white px-8 py-3 rounded-2xl shadow-2xl text-sm z-50 font-black tracking-wide transition-all`;
-            div.innerText = msg;
-            document.body.appendChild(div);
-            setTimeout(() => {
-                div.style.opacity = '0';
-                div.style.transform = 'translate(-50%, 20px)';
-                setTimeout(() => div.remove(), 500);
-            }, 2500);
+            document.getElementById('totalAmount').innerText = `$ ${total.toLocaleString()}`;
         }
     </script>
 </body>
