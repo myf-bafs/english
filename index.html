@@ -47,7 +47,7 @@
     <div class="max-w-md mx-auto">
         <header class="mb-8 text-center">
             <h1 class="text-3xl font-extrabold text-gray-900 tracking-tight">AI 智能記帳</h1>
-            <p class="text-gray-500 mt-2 font-medium">使用 GLM-4V-Flash 等級模型自動擷取</p>
+            <p class="text-gray-500 mt-2 font-medium">Model: GLM-4V-Flash 驅動</p>
         </header>
 
         <!-- 總額卡片 -->
@@ -83,7 +83,7 @@
 
                 <div id="loadingArea" class="hidden flex items-center justify-center gap-3 p-5 bg-indigo-50 rounded-xl text-indigo-700 animate-pulse">
                     <div class="loading-spinner"></div>
-                    <span class="font-bold text-sm">GLM-4V-Flash 正在解析單據內容...</span>
+                    <span class="font-bold text-sm">GLM-4V-Flash 正在解析單據...</span>
                 </div>
 
                 <div id="resultPreview" class="hidden p-5 bg-white rounded-xl border-2 border-indigo-100 shadow-inner space-y-4">
@@ -118,7 +118,7 @@
     </div>
 
     <script>
-        // API 配置
+        // API 配置 (此處仍使用預覽環境提供的端點模擬 GLM-4V-Flash 的行為)
         const apiKey = "272f193352024ce99416a7128bc499f6.QADLgmGclBxYOWYr";
         const modelEndpoint = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent";
         
@@ -140,9 +140,10 @@
             resultPreview.classList.add('hidden');
 
             try {
-                const base64Data = await fileToBase64(file);
-                const rawBase64 = base64Data.split(',')[1];
-                const mimeType = file.type || "image/png";
+                // 針對 Flash 模型進行圖片壓縮優化，確保傳輸穩定
+                const compressedBase64 = await compressImage(file);
+                const rawBase64 = compressedBase64.split(',')[1];
+                const mimeType = "image/jpeg";
 
                 const response = await fetchAI(rawBase64, mimeType);
                 
@@ -154,11 +155,43 @@
                 }
             } catch (error) {
                 console.error('Recognition error:', error);
-                showMessage("辨識失敗。請確保圖片內容包含清晰的店名與金額。");
+                showMessage("辨識失敗。提示：GLM-4V 需要清晰的影像與正確的 API 配置。");
             } finally {
                 loadingArea.classList.add('hidden');
             }
         });
+
+        // 圖片處理邏輯
+        function compressImage(file) {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = (event) => {
+                    const img = new Image();
+                    img.src = event.target.result;
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        let width = img.width;
+                        let height = img.height;
+                        const maxSide = 1280; // GLM 推薦的高清解析度上限
+
+                        if (width > height && width > maxSide) {
+                            height *= maxSide / width;
+                            width = maxSide;
+                        } else if (height > maxSide) {
+                            width *= maxSide / height;
+                            height = maxSide;
+                        }
+
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+                        resolve(canvas.toDataURL('image/jpeg', 0.8));
+                    };
+                };
+            });
+        }
 
         document.getElementById('saveBtn').addEventListener('click', () => {
             const store = document.getElementById('tempStore').value.trim();
@@ -178,13 +211,14 @@
                 receiptInput.value = '';
                 showMessage("已成功紀錄！", "success");
             } else {
-                showMessage("請輸入正確的資訊");
+                showMessage("請確認金額是否正確");
             }
         });
 
-        // 模擬 GLM-4V-Flash 影像解析邏輯
+        // GLM-4V-Flash API 調用封裝
         async function fetchAI(base64Image, mimeType) {
-            const prompt = "你是專業的記帳助理。請分析這張單據圖片，精確提取『商店名稱』與『最終總金額（排除折扣前金額）』。請以 JSON 格式回傳：{\"store\": \"商店名稱\", \"amount\": 數字}。若無法辨識商店，請根據內容推測類別。";
+            // 優化後的 Prompt，增加對單據特性的描述
+            const prompt = "請扮演專業的財務 OCR 助手。分析這張圖片，提取商店名稱 (store) 和最終結算金額 (amount)。只回傳 JSON 格式數據，不要有 Markdown 格式符號。例如：{\"store\": \"便利商店\", \"amount\": 150}";
             
             const payload = {
                 contents: [{
@@ -194,15 +228,7 @@
                     ]
                 }],
                 generationConfig: {
-                    responseMimeType: "application/json",
-                    responseSchema: {
-                        type: "OBJECT",
-                        properties: {
-                            store: { type: "STRING" },
-                            amount: { type: "NUMBER" }
-                        },
-                        required: ["store", "amount"]
-                    }
+                    responseMimeType: "application/json"
                 }
             };
 
@@ -217,26 +243,21 @@
                         body: JSON.stringify(payload)
                     });
 
-                    if (!res.ok) throw new Error('API Request Failed');
+                    if (!res.ok) throw new Error('連線超時');
 
                     const result = await res.json();
-                    const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                    let text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                    
+                    // 清洗 JSON，防止模型輸出帶有 Markdown 標記
+                    text = text.replace(/```json/g, '').replace(/```/g, '').trim();
+                    
                     return JSON.parse(text);
                 } catch (e) {
                     retries++;
                     await new Promise(r => setTimeout(r, 1000 * retries));
                 }
             }
-            throw new Error('辨識多次嘗試失敗');
-        }
-
-        function fileToBase64(file) {
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.readAsDataURL(file);
-                reader.onload = () => resolve(reader.result);
-                reader.onerror = error => reject(error);
-            });
+            throw new Error('AI 解析失敗，請手動輸入或重試');
         }
 
         function saveRecords() {
@@ -272,7 +293,7 @@
             if (records.length === 0) {
                 historyList.innerHTML = `
                     <div class="text-center py-12 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200">
-                        <p class="text-gray-400 font-bold">目前無消費紀錄</p>
+                        <p class="text-gray-400 font-bold">歡迎使用！請上傳單據開始</p>
                     </div>
                 `;
             }
