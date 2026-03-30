@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AI Smart Finance - 多幣種 PWA 助手</title>
+    <title>AI Smart Finance - 廣東話語音記帳</title>
     
     <!-- PWA Meta Tags -->
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -39,24 +39,11 @@
             vertical-align: middle;
         }
 
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-        .tab-content {
-            display: none;
-            animation: fadeIn 0.3s ease-in-out;
-        }
-
-        .tab-content.active {
-            display: block;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
+        .tab-content { display: none; animation: fadeIn 0.3s ease-in-out; }
+        .tab-content.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
         .currency-tag {
             font-size: 0.65rem;
@@ -66,15 +53,29 @@
             color: #475569;
             margin-left: 4px;
         }
+
+        .recording {
+            animation: pulse 1.5s infinite;
+            color: #ef4444 !important;
+            background-color: #fee2e2 !important;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); opacity: 0.7; }
+            100% { transform: scale(1); }
+        }
     </style>
 </head>
 <body class="pb-24">
 
-    <!-- 主容器 -->
     <div class="max-w-4xl mx-auto p-4 md:p-8">
         
         <header class="flex justify-between items-center mb-6">
-            <h1 id="pageTitle" class="text-2xl font-bold text-slate-800">儀表板</h1>
+            <div class="flex items-baseline gap-2">
+                <h1 id="pageTitle" class="text-2xl font-bold text-slate-800">儀表板</h1>
+                <span class="text-xs text-blue-500 font-bold bg-blue-50 px-2 py-0.5 rounded-full">v2.2</span>
+            </div>
             <div class="hidden md:flex gap-4">
                 <button onclick="switchTab('dashboard')" class="text-slate-500 hover:text-blue-600 font-medium px-3 py-1">首頁</button>
                 <button onclick="switchTab('history')" class="text-slate-500 hover:text-blue-600 font-medium px-3 py-1">明細</button>
@@ -95,18 +96,38 @@
                 </div>
             </div>
 
-            <div class="glass-card p-6 rounded-3xl shadow-sm border border-slate-200">
-                <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
-                    <i class="fa-solid fa-wand-magic-sparkles text-purple-500"></i> AI 全球收據辨識
-                </h2>
-                <div class="border-2 border-dashed border-blue-200 bg-blue-50 rounded-2xl p-8 text-center cursor-pointer hover:border-blue-400 transition" onclick="document.getElementById('fileInput').click()">
-                    <i class="fa-solid fa-camera text-4xl text-blue-400 mb-2"></i>
-                    <p class="text-sm text-blue-600 font-medium">拍攝外幣收據自動換算 HKD</p>
-                    <input type="file" id="fileInput" class="hidden" accept="image/*" onchange="handleImageUpload(event)">
+            <!-- AI 功能區 -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- 拍照辨識 -->
+                <div class="glass-card p-6 rounded-3xl shadow-sm border border-slate-200">
+                    <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
+                        <i class="fa-solid fa-camera text-blue-500"></i> 拍照記帳
+                    </h2>
+                    <div class="border-2 border-dashed border-blue-100 bg-blue-50/50 rounded-2xl p-6 text-center cursor-pointer hover:border-blue-400 transition" onclick="document.getElementById('fileInput').click()">
+                        <p class="text-sm text-blue-600 font-medium">拍攝收據提取商戶名</p>
+                        <input type="file" id="fileInput" class="hidden" accept="image/*" onchange="handleImageUpload(event)">
+                    </div>
                 </div>
-                <div id="aiStatus" class="mt-4 text-sm text-center hidden">
-                    <span class="loader mr-2"></span> <span id="statusText" class="text-slate-600">AI 正在辨識貨幣與金額...</span>
+
+                <!-- 廣東話語音/文字辨識 -->
+                <div class="glass-card p-6 rounded-3xl shadow-sm border border-slate-200">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-lg font-bold flex items-center gap-2">
+                            <i class="fa-solid fa-microphone text-purple-500"></i> 廣東話語音
+                        </h2>
+                        <button id="voiceBtn" onclick="toggleVoice()" class="w-10 h-10 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center transition">
+                            <i class="fa-solid fa-microphone"></i>
+                        </button>
+                    </div>
+                    <div class="flex flex-col gap-2">
+                        <textarea id="quickText" placeholder="點擊右上方麥克風講話，或貼上銀行簡訊..." class="w-full h-20 p-3 text-sm bg-slate-50 border border-slate-100 rounded-xl outline-none focus:ring-2 focus:ring-purple-400"></textarea>
+                        <button onclick="handleTextAI()" class="bg-purple-600 text-white p-2 rounded-xl text-sm font-bold hover:bg-purple-700">AI 辨識內容</button>
+                    </div>
                 </div>
+            </div>
+
+            <div id="aiStatus" class="mt-4 text-sm text-center hidden">
+                <span class="loader mr-2"></span> <span id="statusText" class="text-slate-600">AI 正在努力分析中...</span>
             </div>
 
             <div class="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
@@ -132,29 +153,27 @@
 
             <!-- 手動新增 -->
             <div class="glass-card p-6 rounded-3xl shadow-sm border border-slate-200">
-                <h2 class="text-lg font-bold mb-4 text-slate-800">手動新增 (支援外幣)</h2>
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <input type="number" id="manualAmount" placeholder="金額" class="p-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-blue-400">
-                    <select id="manualCurrency" class="p-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-blue-400">
-                        <option value="HKD">HKD 港幣</option>
-                        <option value="TWD">TWD 台幣</option>
-                        <option value="JPY">JPY 日圓</option>
-                        <option value="USD">USD 美元</option>
-                        <option value="CNY">CNY 人民幣</option>
-                        <option value="EUR">EUR 歐元</option>
-                        <option value="GBP">GBP 英鎊</option>
+                <h2 class="text-lg font-bold mb-4 text-slate-800">手動補錄</h2>
+                <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+                    <input type="text" id="manualMerchant" placeholder="店名/餐廳名" class="col-span-2 p-3 rounded-xl border border-slate-200 outline-none">
+                    <input type="number" id="manualAmount" placeholder="金額" class="p-3 rounded-xl border border-slate-200 outline-none">
+                    <select id="manualCurrency" class="p-3 rounded-xl border border-slate-200 outline-none">
+                        <option value="HKD">HKD</option>
+                        <option value="TWD">TWD</option>
+                        <option value="JPY">JPY</option>
+                        <option value="USD">USD</option>
+                        <option value="CNY">CNY</option>
                     </select>
-                    <select id="manualCategory" class="p-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-blue-400">
-                        <option value="食">餐飲美食</option>
-                        <option value="衣">服飾美容</option>
-                        <option value="住">居家生活</option>
-                        <option value="行">交通出行</option>
-                        <option value="育">教育學習</option>
-                        <option value="樂">休閒娛樂</option>
+                    <select id="manualCategory" class="p-3 rounded-xl border border-slate-200 outline-none">
+                        <option value="食">餐飲</option>
+                        <option value="衣">服飾</option>
+                        <option value="住">居家</option>
+                        <option value="行">交通</option>
+                        <option value="育">教育</option>
+                        <option value="樂">娛樂</option>
                         <option value="其他">其他</option>
                     </select>
-                    <input type="text" id="manualNote" placeholder="備註" class="p-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-blue-400">
-                    <button onclick="addExpenseManually()" class="col-span-2 md:col-span-4 bg-blue-600 text-white p-3 rounded-xl font-bold hover:bg-blue-700 transition">新增記錄</button>
+                    <button onclick="addExpenseManually()" class="col-span-2 md:col-span-5 bg-blue-600 text-white p-3 rounded-xl font-bold">新增記錄</button>
                 </div>
             </div>
         </div>
@@ -167,20 +186,17 @@
                     <div>
                         <label class="block text-sm font-medium text-slate-700 mb-1">ZhipuAI API Key</label>
                         <div class="flex gap-2">
-                            <input type="password" id="apiKey" placeholder="輸入 API Key" class="flex-1 p-3 rounded-xl border border-slate-200 outline-none">
-                            <button onclick="saveConfig()" class="bg-slate-800 text-white px-6 py-3 rounded-xl hover:bg-slate-700">儲存</button>
+                            <input type="password" id="apiKey" class="flex-1 p-3 rounded-xl border border-slate-200 outline-none">
+                            <button onclick="saveConfig()" class="bg-slate-800 text-white px-6 py-3 rounded-xl">儲存</button>
                         </div>
                     </div>
                     <div class="pt-4 border-t border-slate-100">
-                        <h3 class="font-bold text-slate-800 mb-2">當前匯率參考 (1 外幣 = ? HKD)</h3>
-                        <div id="exchangeRateInfo" class="text-xs text-slate-500 grid grid-cols-2 gap-2">
-                            載入匯率中...
-                        </div>
+                        <h3 class="font-bold text-slate-800 mb-2">當前匯率參考</h3>
+                        <div id="exchangeRateInfo" class="text-xs text-slate-500 grid grid-cols-3 gap-2"></div>
                     </div>
                 </div>
             </div>
         </div>
-
     </div>
 
     <nav class="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-md border-t border-slate-100 px-6 py-3 flex justify-around items-center md:hidden z-50">
@@ -199,13 +215,54 @@
     </nav>
 
     <script>
-        // 預設配置 API Key
         const DEFAULT_API_KEY = "272f193352024ce99416a7128bc499f6.QADLgmGclBxYOWYr";
-
         let expenses = JSON.parse(localStorage.getItem('expenses')) || [];
         let apiKey = localStorage.getItem('zhipu_api_key') || DEFAULT_API_KEY;
-        
         let rates = { "HKD": 1, "USD": 7.8, "JPY": 0.052, "TWD": 0.24, "CNY": 1.08, "EUR": 8.4, "GBP": 9.8 };
+
+        // 語音辨識初始化
+        let recognition;
+        let isRecording = false;
+
+        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            recognition = new SpeechRecognition();
+            recognition.lang = 'zh-HK'; // 設定為香港廣東話
+            recognition.continuous = false;
+            recognition.interimResults = false;
+
+            recognition.onstart = () => {
+                isRecording = true;
+                document.getElementById('voiceBtn').classList.add('recording');
+                document.getElementById('quickText').placeholder = "請講話...";
+            };
+
+            recognition.onresult = (event) => {
+                const text = event.results[0][0].transcript;
+                document.getElementById('quickText').value += text;
+            };
+
+            recognition.onend = () => {
+                isRecording = false;
+                document.getElementById('voiceBtn').classList.remove('recording');
+                document.getElementById('quickText').placeholder = "點擊右上方麥克風講話...";
+            };
+
+            recognition.onerror = (event) => {
+                console.error("語音辨識出錯", event.error);
+                isRecording = false;
+                document.getElementById('voiceBtn').classList.remove('recording');
+            };
+        }
+
+        function toggleVoice() {
+            if (!recognition) return alert("您的瀏覽器不支援語音辨識");
+            if (isRecording) {
+                recognition.stop();
+            } else {
+                recognition.start();
+            }
+        }
 
         document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('apiKey').value = apiKey;
@@ -219,21 +276,16 @@
                 const data = await res.json();
                 if (data && data.rates) {
                     for (let curr in rates) {
-                        if (data.rates[curr]) {
-                            rates[curr] = parseFloat((1 / data.rates[curr]).toFixed(4));
-                        }
+                        if (data.rates[curr]) rates[curr] = parseFloat((1 / data.rates[curr]).toFixed(5));
                     }
                     updateRateUI();
                 }
-            } catch (e) {
-                updateRateUI();
-            }
+            } catch (e) { updateRateUI(); }
         }
 
         function updateRateUI() {
             const info = document.getElementById('exchangeRateInfo');
-            if (!info) return;
-            info.innerHTML = Object.keys(rates).map(k => `<span>${k}: ${rates[k]}</span>`).join('');
+            if (info) info.innerHTML = Object.keys(rates).map(k => `<span>${k}: ${rates[k]}</span>`).join('');
         }
 
         function switchTab(tabName) {
@@ -244,109 +296,92 @@
             });
             document.getElementById(`nav-${tabName}`).classList.add('text-blue-600');
             document.getElementById(`nav-${tabName}`).classList.remove('text-slate-400');
-            const titles = { 'dashboard': '儀表板', 'history': '消費明細', 'settings': '系統設定' };
-            document.getElementById('pageTitle').innerText = titles[tabName];
             renderExpenses();
             window.scrollTo(0, 0);
         }
 
         function saveConfig() {
-            const key = document.getElementById('apiKey').value;
-            localStorage.setItem('zhipu_api_key', key);
-            apiKey = key;
+            apiKey = document.getElementById('apiKey').value;
+            localStorage.setItem('zhipu_api_key', apiKey);
             alert('設定已儲存！');
         }
+
+        const AI_PROMPT = "分析內容，提取以下 JSON：{amount:數字, merchant:餐廳或商店名, currency:貨幣代碼, category:食|衣|住|行|育|樂|其他, date:YYYY-MM-DD, note:備註}。";
 
         async function handleImageUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
-            if (!apiKey) {
-                alert('請先設定 API Key');
-                switchTab('settings');
-                return;
-            }
             document.getElementById('aiStatus').classList.remove('hidden');
             const reader = new FileReader();
-            reader.onload = async (e) => await callGLM4V(e.target.result.split(',')[1]);
+            reader.onload = async (e) => {
+                const base64 = e.target.result.split(',')[1];
+                await callAI("glm-4v-flash", [
+                    { type: "text", text: AI_PROMPT },
+                    { type: "image_url", image_url: { url: `data:image/jpeg;base64,${base64}` } }
+                ]);
+            };
             reader.readAsDataURL(file);
         }
 
-        async function callGLM4V(base64Image) {
+        async function handleTextAI() {
+            const text = document.getElementById('quickText').value;
+            if (!text) return alert("請輸入或語音錄入文字");
+            document.getElementById('aiStatus').classList.remove('hidden');
+            await callAI("glm-4-flash", [{ type: "text", text: AI_PROMPT + " 內容如下：" + text }]);
+            document.getElementById('quickText').value = "";
+        }
+
+        async function callAI(model, content) {
             const url = "https://open.bigmodel.cn/api/paas/v4/chat/completions";
-            const payload = {
-                model: "glm-4v-flash",
-                messages: [{
-                    role: "user",
-                    content: [
-                        { type: "text", text: "分析此收據，提取：金額(amount,數字)、貨幣代碼(currency,如HKD,USD,JPY,TWD,CNY)、類別(category,限:食,衣,住,行,育,樂,其他)、日期(date,YYYY-MM-DD)、備註(note)。以 JSON 回傳。" },
-                        { type: "image_url", image_url: { url: `data:image/jpeg;base64,${base64Image}` } }
-                    ]
-                }],
-                response_format: { type: "json_object" }
-            };
-
-            // 指數退避重試邏輯
-            const fetchWithRetry = async (retries = 5, delay = 1000) => {
-                try {
-                    const response = await fetch(url, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-                        body: JSON.stringify(payload)
-                    });
-                    if (!response.ok) throw new Error('API Error');
-                    return await response.json();
-                } catch (error) {
-                    if (retries > 0) {
-                        await new Promise(r => setTimeout(r, delay));
-                        return fetchWithRetry(retries - 1, delay * 2);
-                    }
-                    throw error;
-                }
-            };
-
             try {
-                const data = await fetchWithRetry();
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+                    body: JSON.stringify({ model, messages: [{ role: "user", content }], response_format: { type: "json_object" } })
+                });
+                const data = await response.json();
                 const res = JSON.parse(data.choices[0].message.content);
                 
-                const currency = res.currency ? res.currency.toUpperCase() : "HKD";
+                const rawAmount = String(res.amount).replace(/[^\d.]/g, '');
+                const cleanAmount = parseFloat(rawAmount) || 0;
+                
+                const currency = (res.currency || "HKD").toUpperCase();
                 const rate = rates[currency] || 1;
-                const hkdAmount = Math.round(res.amount * rate * 100) / 100;
+                const hkdAmount = Math.round(cleanAmount * rate * 100) / 100;
 
-                addExpenseRecord(hkdAmount, res.category, res.note, res.date || new Date().toISOString().split('T')[0], {
-                    originalAmount: res.amount,
+                addExpenseRecord(hkdAmount, res.category, res.merchant || res.note || "未知商戶", res.date || new Date().toISOString().split('T')[0], {
+                    originalAmount: cleanAmount,
                     originalCurrency: currency
                 });
-                alert(`辨識成功: ${res.amount} ${currency} -> HKD ${hkdAmount}`);
+                alert(`已記錄：${res.merchant || ""} HKD ${hkdAmount}`);
             } catch (e) {
                 console.error(e);
-                alert("AI 辨識失敗，請檢查網路或 API Key 狀態。");
+                alert("AI 辨識發生錯誤");
             } finally {
                 document.getElementById('aiStatus').classList.add('hidden');
-                // 清空 input 讓同張圖能重複觸發
-                document.getElementById('fileInput').value = "";
             }
         }
 
         function addExpenseManually() {
-            const amount = parseFloat(document.getElementById('manualAmount').value);
+            const merchant = document.getElementById('manualMerchant').value;
+            const amount = parseFloat(document.getElementById('manualAmount').value) || 0;
             const currency = document.getElementById('manualCurrency').value;
             const category = document.getElementById('manualCategory').value;
-            const note = document.getElementById('manualNote').value;
-            if (!amount) return alert('請輸入金額');
+            if (amount <= 0) return alert('請輸入金額');
 
             const rate = rates[currency] || 1;
             const hkdAmount = Math.round(amount * rate * 100) / 100;
 
-            addExpenseRecord(hkdAmount, category, note || "手動新增", new Date().toISOString().split('T')[0], {
+            addExpenseRecord(hkdAmount, category, merchant || "手動新增", new Date().toISOString().split('T')[0], {
                 originalAmount: amount,
                 originalCurrency: currency
             });
+            document.getElementById('manualMerchant').value = '';
             document.getElementById('manualAmount').value = '';
         }
 
         function addExpenseRecord(amount, category, note, date, extra = null) {
-            const record = { id: Date.now(), amount, category, note, date, extra };
-            expenses.unshift(record);
+            expenses.unshift({ id: Date.now(), amount, category, note, date, extra });
             localStorage.setItem('expenses', JSON.stringify(expenses));
             renderExpenses();
         }
@@ -385,7 +420,7 @@
                                 </div>
                             </div>
                             <div class="text-right">
-                                <p class="font-bold text-slate-900">$${exp.amount.toLocaleString()}</p>
+                                <p class="font-bold text-slate-900">$${exp.amount.toLocaleString(undefined, {minimumFractionDigits: 1})}</p>
                                 <button onclick="deleteExpense(${exp.id})" class="text-[10px] text-red-300 hover:text-red-500">刪除</button>
                             </div>
                         </div>
@@ -398,10 +433,10 @@
                 if(e.date === todayStr) todayTotal += e.amount;
             });
 
-            totalEl.innerText = total.toLocaleString();
-            todayEl.innerText = todayTotal.toLocaleString();
+            totalEl.innerText = total.toLocaleString(undefined, {maximumFractionDigits: 1});
+            todayEl.innerText = todayTotal.toLocaleString(undefined, {maximumFractionDigits: 1});
             if (list) list.innerHTML = html(expenses);
-            if (recentList) recentList.innerHTML = html(expenses.slice(0, 3));
+            if (recentList) recentList.innerHTML = html(expenses.slice(0, 4));
         }
 
         function getCategoryIcon(cat) {
@@ -409,9 +444,7 @@
             return icons[cat] || 'fa-solid fa-tag';
         }
 
-        function clearData() {
-            if(confirm('確定清除所有數據？')) { expenses = []; localStorage.setItem('expenses', '[]'); renderExpenses(); }
-        }
+        function clearData() { if(confirm('確定清除所有數據？')) { expenses = []; localStorage.setItem('expenses', '[]'); renderExpenses(); } }
     </script>
 </body>
 </html>
