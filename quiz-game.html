@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>即時競技問答比賽</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700;900&display=swap');
+        
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+
+        .game-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 24px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        .answer-btn {
+            transition: all 0.3s ease;
+            transform: scale(1);
+        }
+
+        .answer-btn:hover {
+            transform: scale(1.02);
+        }
+
+        .answer-btn.correct {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+            animation: correctPulse 0.5s ease;
+        }
+
+        .answer-btn.wrong {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%) !important;
+            animation: wrongShake 0.5s ease;
+        }
+
+        @keyframes correctPulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        @keyframes wrongShake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+
+        .timer-bar {
+            transition: width 1s linear;
+        }
+
+        .player-avatar {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: white;
+        }
+
+        .pulse-animation {
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
+        .page-section {
+            display: none;
+            animation: fadeIn 0.5s ease;
+        }
+
+        .page-section.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .score-pop {
+            animation: scorePop 0.5s ease;
+        }
+
+        @keyframes scorePop {
+            0% { transform: scale(0); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+    <div class="max-w-6xl mx-auto">
+        <!-- 首頁 -->
+        <div id="home-page" class="page-section active">
+            <div class="game-card p-8 md:p-12 text-center">
+                <div class="mb-8">
+                    <i class="fa-solid fa-trophy text-6xl text-yellow-500 mb-4"></i>
+                    <h1 class="text-4xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-blue-600 mb-4">
+                        即時競技問答比賽
+                    </h1>
+                    <p class="text-gray-600 text-lg">挑戰知識極限，爭奪冠軍寶座！</p>
+                </div>
+
+                <div class="grid md:grid-cols-3 gap-6 mb-8">
+                    <div class="bg-blue-50 p-6 rounded-2xl">
+                        <i class="fa-solid fa-clock text-3xl text-blue-600 mb-3"></i>
+                        <h3 class="font-bold text-lg mb-2">限時作答</h3>
+                        <p class="text-sm text-gray-600">每題 15 秒倒數，考驗你的反應速度</p>
+                    </div>
+                    <div class="bg-green-50 p-6 rounded-2xl">
+                        <i class="fa-solid fa-users text-3xl text-green-600 mb-3"></i>
+                        <h3 class="font-bold text-lg mb-2">多人對戰</h3>
+                        <p class="text-sm text-gray-600">與朋友或其他玩家即時 PK</p>
+                    </div>
+                    <div class="bg-purple-50 p-6 rounded-2xl">
+                        <i class="fa-solid fa-medal text-3xl text-purple-600 mb-3"></i>
+                        <h3 class="font-bold text-lg mb-2">積分排行</h3>
+                        <p class="text-sm text-gray-600">累積積分，登上榮譽榜單</p>
+                    </div>
+                </div>
+
+                <div class="flex flex-col md:flex-row gap-4 justify-center">
+                    <button onclick="showPage('lobby-page')" class="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-4 rounded-2xl font-bold text-xl hover:shadow-lg transform hover:-translate-y-1 transition">
+                        <i class="fa-solid fa-play mr-2"></i>開始比賽
+                    </button>
+                    <button onclick="showPage('practice-page')" class="bg-white border-2 border-purple-600 text-purple-600 px-8 py-4 rounded-2xl font-bold text-xl hover:bg-purple-50 transition">
+                        <i class="fa-solid fa-book-open mr-2"></i>練習模式
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 大廳頁面 -->
+        <div id="lobby-page" class="page-section">
+            <div class="game-card p-8">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold">比賽大廳</h2>
+                    <button onclick="showPage('home-page')" class="text-gray-500 hover:text-gray-700">
+                        <i class="fa-solid fa-house text-xl"></i>
+                    </button>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div class="bg-gradient-to-br from-blue-500 to-purple-600 p-6 rounded-2xl text-white">
+                        <h3 class="text-xl font-bold mb-4">快速配對</h3>
+                        <p class="mb-6 opacity-90">系統自動匹配實力相近的对手</p>
+                        <button onclick="startQuickMatch()" class="w-full bg-white text-purple-600 py-3 rounded-xl font-bold hover:bg-blue-50 transition">
+                            <i class="fa-solid fa-bolt mr-2"></i>立即配對
+                        </button>
+                    </div>
+
+                    <div class="bg-gray-50 p-6 rounded-2xl">
+                        <h3 class="text-xl font-bold mb-4 text-gray-800">創建房間</h3>
+                        <div class="space-y-4">
+                            <input type="text" id="roomName" placeholder="房間名稱" class="w-full p-3 rounded-xl border border-gray-300 outline-none focus:border-purple-500">
+                            <select id="gameMode" class="w-full p-3 rounded-xl border border-gray-300 outline-none">
+                                <option value="1v1">1 vs 1 對戰</option>
+                                <option value="2v2">2 vs 2 團體賽</option>
+                                <option value="battle">百人爭霸</option>
+                            </select>
+                            <button onclick="createRoom()" class="w-full bg-purple-600 text-white py-3 rounded-xl font-bold hover:bg-purple-700 transition">
+                                <i class="fa-solid fa-plus mr-2"></i>創建房間
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-8">
+                    <h3 class="text-xl font-bold mb-4">等待中的房間</h3>
+                    <div id="roomList" class="space-y-3">
+                        <!-- 房間列表將由 JS 動態生成 -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 遊戲頁面 -->
+        <div id="game-page" class="page-section">
+            <div class="game-card p-6">
+                <!-- 遊戲資訊列 -->
+                <div class="flex justify-between items-center mb-6 pb-4 border-b">
+                    <div class="flex items-center gap-4">
+                        <div class="player-avatar bg-blue-500" id="player1Avatar">P1</div>
+                        <div>
+                            <div class="font-bold" id="player1Name">玩家 1</div>
+                            <div class="text-2xl font-black text-blue-600" id="player1Score">0</div>
+                        </div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-sm text-gray-500">第 <span id="questionNum">1</span> / 10 題</div>
+                        <div class="text-3xl font-black text-purple-600" id="timer">15</div>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <div class="text-right">
+                            <div class="font-bold" id="player2Name">玩家 2</div>
+                            <div class="text-2xl font-black text-red-600" id="player2Score">0</div>
+                        </div>
+                        <div class="player-avatar bg-red-500" id="player2Avatar">P2</div>
+                    </div>
+                </div>
+
+                <!-- 計時條 -->
+                <div class="mb-6">
+                    <div class="h-3 bg-gray-200 rounded-full overflow-hidden">
+                        <div id="timerBar" class="h-full bg-gradient-to-r from-green-500 to-yellow-500 timer-bar" style="width: 100%"></div>
+                    </div>
+                </div>
+
+                <!-- 題目區域 -->
+                <div class="mb-8">
+                    <div class="bg-gradient-to-r from-purple-50 to-blue-50 p-6 rounded-2xl mb-6">
+                        <span class="bg-purple-600 text-white px-3 py-1 rounded-full text-sm font-bold mb-3 inline-block">選擇題</span>
+                        <h3 class="text-xl md:text-2xl font-bold" id="questionText">題目載入中...</h3>
+                    </div>
+
+                    <div class="grid md:grid-cols-2 gap-4" id="answerOptions">
+                        <!-- 選項將由 JS 動態生成 -->
+                    </div>
+                </div>
+
+                <!-- 反饋區域 -->
+                <div id="feedbackArea" class="hidden text-center py-8">
+                    <i id="feedbackIcon" class="fa-solid fa-circle-check text-6xl mb-4"></i>
+                    <h3 id="feedbackText" class="text-2xl font-bold mb-2"></h3>
+                    <p id="feedbackDetail" class="text-gray-600"></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 結果頁面 -->
+        <div id="result-page" class="page-section">
+            <div class="game-card p-8 md:p-12 text-center">
+                <div id="resultContent">
+                    <!-- 結果內容將由 JS 動態生成 -->
+                </div>
+                
+                <div class="flex gap-4 justify-center mt-8">
+                    <button onclick="showPage('lobby-page')" class="bg-purple-600 text-white px-8 py-4 rounded-2xl font-bold hover:bg-purple-700 transition">
+                        <i class="fa-solid fa-rotate mr-2"></i>再玩一次
+                    </button>
+                    <button onclick="showPage('home-page')" class="bg-gray-200 text-gray-700 px-8 py-4 rounded-2xl font-bold hover:bg-gray-300 transition">
+                        <i class="fa-solid fa-house mr-2"></i>返回首頁
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 練習模式頁面 -->
+        <div id="practice-page" class="page-section">
+            <div class="game-card p-8">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold">練習模式</h2>
+                    <button onclick="showPage('home-page')" class="text-gray-500 hover:text-gray-700">
+                        <i class="fa-solid fa-house text-xl"></i>
+                    </button>
+                </div>
+
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">選擇題庫</label>
+                    <select id="practiceCategory" class="w-full p-3 rounded-xl border border-gray-300 outline-none">
+                        <option value="general">常識百科</option>
+                        <option value="science">科學知識</option>
+                        <option value="history">歷史文化</option>
+                        <option value="entertainment">娛樂流行</option>
+                        <option value="tech">科技數位</option>
+                    </select>
+                </div>
+
+                <button onclick="startPractice()" class="w-full bg-gradient-to-r from-green-500 to-blue-500 text-white py-4 rounded-2xl font-bold text-xl hover:shadow-lg transition">
+                    <i class="fa-solid fa-book mr-2"></i>開始練習
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 遊戲狀態
+        let gameState = {
+            currentPage: 'home-page',
+            score: 0,
+            questionNum: 0,
+            totalQuestions: 10,
+            timer: 15,
+            timerInterval: null,
+            isAnswered: false,
+            player1: { name: '玩家 1', score: 0, avatar: '🎮' },
+            player2: { name: '玩家 2', score: 0, avatar: '🤖' },
+            currentQuestion: null
+        };
+
+        // 題庫
+        const questionBank = {
+            general: [
+                { q: "太陽系中最大的行星是哪一顆？", options: ["地球", "木星", "土星", "火星"], answer: 1 },
+                { q: "世界上最長的河流是？", options: ["亞馬遜河", "尼羅河", "長江", "密西西比河"], answer: 1 },
+                { q: "人體有多少塊骨頭？", options: ["206", "208", "210", "204"], answer: 0 },
+                { q: "哪個國家被稱為「千湖之國」？", options: ["瑞典", "挪威", "芬蘭", "丹麥"], answer: 2 },
+                { q: "光的速度約為每秒多少公里？", options: ["30 萬", "20 萬", "40 萬", "50 萬"], answer: 0 }
+            ],
+            science: [
+                { q: "水的化學式是什麼？", options: ["CO2", "H2O", "O2", "NaCl"], answer: 1 },
+                { q: "誰發現了萬有引力？", options: ["愛因斯坦", "牛頓", "伽利略", "達爾文"], answer: 1 },
+                { q: "原子核中不包含哪種粒子？", options: ["質子", "中子", "電子", "以上皆非"], answer: 2 },
+                { q: "植物進行光合作用時會釋放什麼氣體？", options: ["二氧化碳", "氧氣", "氮氣", "氫氣"], answer: 1 },
+                { q: "地球的自轉週期是多久？", options: ["24 小時", "12 小時", "365 天", "30 天"], answer: 0 }
+            ],
+            history: [
+                { q: "中國歷史上第一個皇帝是誰？", options: ["漢武帝", "唐太宗", "秦始皇", "康熙"], answer: 2 },
+                { q: "第二次世界大戰結束於哪一年？", options: ["1943", "1944", "1945", "1946"], answer: 2 },
+                { q: "文藝復興起源於哪個國家？", options: ["法國", "英國", "義大利", "西班牙"], answer: 2 },
+                { q: "美國獨立宣言發表於哪一年？", options: ["1774", "1775", "1776", "1777"], answer: 2 },
+                { q: "哪位航海家首先完成環球航行？", options: ["哥倫布", "達伽馬", "麥哲倫", "鄭和"], answer: 2 }
+            ],
+            entertainment: [
+                { q: "電影《鐵達尼號》的導演是誰？", options: ["史匹柏", "詹姆斯卡麥隆", "諾蘭", "昆汀"], answer: 1 },
+                { q: "哪位歌手被稱為「流行音樂之王」？", options: ["貓王", "麥可傑克森", "王子", "瑪丹娜"], answer: 1 },
+                { q: "哈利波特系列小說的作者是？", options: ["托爾金", "J.K.羅琳", "喬治馬丁", "丹布朗"], answer: 1 },
+                { q: "奧斯卡金像獎是哪个國家的電影獎項？", options: ["英國", "法國", "美國", "義大利"], answer: 2 },
+                { q: "迪士尼的第一部動畫長片是？", options: ["灰姑娘", "白雪公主", "小飛象", "小鹿斑比"], answer: 1 }
+            ],
+            tech: [
+                { q: "CPU 是什麼的縮寫？", options: ["中央處理單元", "電腦個人單元", "中央程式單元", "控制處理單元"], answer: 0 },
+                { q: "哪個公司開發了 Android 系統？", options: ["蘋果", "微軟", "谷歌", "三星"], answer: 2 },
+                { q: "HTTP 協議預設使用哪個端口？", options: ["21", "22", "80", "443"], answer: 2 },
+                { q: "JavaScript 主要用於什麼？", options: ["資料庫管理", "網頁互動", "作業系統", "硬體驅動"], answer: 1 },
+                { q: "Wi-Fi 使用的是哪種無線技術？", options: ["藍牙", "紅外線", "射頻", "超音波"], answer: 2 }
+            ]
+        };
+
+        // 頁面切換
+        function showPage(pageId) {
+            document.querySelectorAll('.page-section').forEach(page => {
+                page.classList.remove('active');
+            });
+            document.getElementById(pageId).classList.add('active');
+            gameState.currentPage = pageId;
+        }
+
+        // 快速配對
+        function startQuickMatch() {
+            // 模擬配對過程
+            const btn = event.target;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i>配對中...';
+            btn.disabled = true;
+            
+            setTimeout(() => {
+                gameState.player2.name = getRandomOpponent();
+                initGame();
+            }, 1500);
+        }
+
+        function getRandomOpponent() {
+            const names = ['小明', '小華', '阿強', '小美', '大神', '新手', '王者', '青銅'];
+            return names[Math.floor(Math.random() * names.length)];
+        }
+
+        // 創建房間
+        function createRoom() {
+            const roomName = document.getElementById('roomName').value || '未命名房間';
+            alert(`房間 "${roomName}" 已創建！\n（此為演示版本，實際需後端支援）`);
+            initGame();
+        }
+
+        // 初始化遊戲
+        function initGame() {
+            gameState.score = 0;
+            gameState.questionNum = 0;
+            gameState.player1.score = 0;
+            gameState.player2.score = 0;
+            gameState.isAnswered = false;
+            
+            updateScoreBoard();
+            showPage('game-page');
+            nextQuestion();
+        }
+
+        // 下一題
+        function nextQuestion() {
+            if (gameState.questionNum >= gameState.totalQuestions) {
+                endGame();
+                return;
+            }
+
+            gameState.questionNum++;
+            gameState.isAnswered = false;
+            gameState.timer = 15;
+            
+            // 隨機選擇題目
+            const categories = Object.keys(questionBank);
+            const randomCategory = categories[Math.floor(Math.random() * categories.length)];
+            const questions = questionBank[randomCategory];
+            gameState.currentQuestion = questions[Math.floor(Math.random() * questions.length)];
+
+            // 更新 UI
+            document.getElementById('questionNum').textContent = gameState.questionNum;
+            document.getElementById('questionText').textContent = gameState.currentQuestion.q;
+            document.getElementById('feedbackArea').classList.add('hidden');
+            
+            // 生成選項
+            const optionsContainer = document.getElementById('answerOptions');
+            optionsContainer.innerHTML = '';
+            
+            gameState.currentQuestion.options.forEach((option, index) => {
+                const btn = document.createElement('button');
+                btn.className = 'answer-btn bg-gradient-to-r from-blue-500 to-purple-500 text-white p-4 md:p-6 rounded-xl font-bold text-lg hover:shadow-lg';
+                btn.innerHTML = `<span class="mr-3">${String.fromCharCode(65 + index)}.</span>${option}`;
+                btn.onclick = () => selectAnswer(index);
+                optionsContainer.appendChild(btn);
+            });
+
+            // 啟動計時器
+            startTimer();
+        }
+
+        // 計時器
+        function startTimer() {
+            clearInterval(gameState.timerInterval);
+            updateTimerDisplay();
+            
+            gameState.timerInterval = setInterval(() => {
+                gameState.timer--;
+                updateTimerDisplay();
+                
+                if (gameState.timer <= 0) {
+                    clearInterval(gameState.timerInterval);
+                    timeUp();
+                }
+            }, 1000);
+        }
+
+        function updateTimerDisplay() {
+            document.getElementById('timer').textContent = gameState.timer;
+            const percentage = (gameState.timer / 15) * 100;
+            document.getElementById('timerBar').style.width = percentage + '%';
+            
+            // 根據時間改變顏色
+            const timerBar = document.getElementById('timerBar');
+            if (gameState.timer <= 5) {
+                timerBar.className = 'h-full bg-gradient-to-r from-red-500 to-orange-500 timer-bar';
+            } else if (gameState.timer <= 10) {
+                timerBar.className = 'h-full bg-gradient-to-r from-yellow-500 to-orange-500 timer-bar';
+            } else {
+                timerBar.className = 'h-full bg-gradient-to-r from-green-500 to-yellow-500 timer-bar';
+            }
+        }
+
+        // 選擇答案
+        function selectAnswer(selectedIndex) {
+            if (gameState.isAnswered) return;
+            
+            gameState.isAnswered = true;
+            clearInterval(gameState.timerInterval);
+            
+            const correctIndex = gameState.currentQuestion.answer;
+            const buttons = document.querySelectorAll('.answer-btn');
+            
+            // 顯示正確與錯誤答案
+            buttons[correctIndex].classList.add('correct');
+            if (selectedIndex !== correctIndex) {
+                buttons[selectedIndex].classList.add('wrong');
+            }
+            
+            // 計算得分
+            const isCorrect = selectedIndex === correctIndex;
+            if (isCorrect) {
+                const points = Math.max(100, gameState.timer * 10);
+                gameState.player1.score += points;
+                showFeedback(true, points);
+            } else {
+                showFeedback(false, 0);
+            }
+            
+            // 電腦對手作答（模擬）
+            setTimeout(() => {
+                const computerCorrect = Math.random() > 0.4; // 60% 正確率
+                if (computerCorrect) {
+                    const computerPoints = Math.floor(Math.random() * 100) + 50;
+                    gameState.player2.score += computerPoints;
+                }
+                updateScoreBoard();
+                
+                // 延遲進入下一題
+                setTimeout(nextQuestion, 2000);
+            }, 1000);
+            
+            updateScoreBoard();
+        }
+
+        // 時間到
+        function timeUp() {
+            gameState.isAnswered = true;
+            
+            const buttons = document.querySelectorAll('.answer-btn');
+            const correctIndex = gameState.currentQuestion.answer;
+            buttons[correctIndex].classList.add('correct');
+            
+            // 電腦對手可能得分
+            if (Math.random() > 0.5) {
+                const computerPoints = Math.floor(Math.random() * 50) + 30;
+                gameState.player2.score += computerPoints;
+            }
+            
+            showFeedback(false, 0, true);
+            updateScoreBoard();
+            
+            setTimeout(nextQuestion, 2000);
+        }
+
+        // 顯示反饋
+        function showFeedback(isCorrect, points, isTimeUp = false) {
+            const feedbackArea = document.getElementById('feedbackArea');
+            const feedbackIcon = document.getElementById('feedbackIcon');
+            const feedbackText = document.getElementById('feedbackText');
+            const feedbackDetail = document.getElementById('feedbackDetail');
+            
+            feedbackArea.classList.remove('hidden');
+            
+            if (isCorrect) {
+                feedbackIcon.className = 'fa-solid fa-circle-check text-6xl text-green-500 mb-4 score-pop';
+                feedbackText.textContent = `🎉 答對了！+${points} 分`;
+                feedbackText.className = 'text-2xl font-bold mb-2 text-green-600';
+                feedbackDetail.textContent = `剩餘 ${gameState.timer} 秒，獲得額外加分！`;
+            } else if (isTimeUp) {
+                feedbackIcon.className = 'fa-solid fa-clock text-6xl text-orange-500 mb-4';
+                feedbackText.textContent = '⏰ 時間到！';
+                feedbackText.className = 'text-2xl font-bold mb-2 text-orange-600';
+                feedbackDetail.textContent = '下次要加快速度喔！';
+            } else {
+                feedbackIcon.className = 'fa-solid fa-circle-xmark text-6xl text-red-500 mb-4';
+                feedbackText.textContent = '❌ 答錯了！';
+                feedbackText.className = 'text-2xl font-bold mb-2 text-red-600';
+                feedbackDetail.textContent = `正確答案是：${gameState.currentQuestion.options[gameState.currentQuestion.answer]}`;
+            }
+        }
+
+        // 更新計分板
+        function updateScoreBoard() {
+            document.getElementById('player1Score').textContent = gameState.player1.score;
+            document.getElementById('player2Score').textContent = gameState.player2.score;
+        }
+
+        // 結束遊戲
+        function endGame() {
+            showPage('result-page');
+            
+            const resultContent = document.getElementById('resultContent');
+            const player1Win = gameState.player1.score > gameState.player2.score;
+            const isDraw = gameState.player1.score === gameState.player2.score;
+            
+            let icon, title, message, colorClass;
+            
+            if (player1Win) {
+                icon = '🏆';
+                title = '恭喜獲勝！';
+                message = `你以 ${gameState.player1.score} 比 ${gameState.player2.score} 擊敗了 ${gameState.player2.name}！`;
+                colorClass = 'from-yellow-400 to-orange-500';
+            } else if (isDraw) {
+                icon = '🤝';
+                title = '平局！';
+                message = `雙方同分 ${gameState.player1.score} 分，實力相當！`;
+                colorClass = 'from-blue-400 to-purple-500';
+            } else {
+                icon = '💪';
+                title = '再接再厲！';
+                message = `以 ${gameState.player1.score} 比 ${gameState.player2.score} 惜敗，繼續挑戰！`;
+                colorClass = 'from-gray-400 to-gray-600';
+            }
+            
+            resultContent.innerHTML = `
+                <div class="mb-8">
+                    <div class="text-8xl mb-4">${icon}</div>
+                    <h2 class="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r ${colorClass} mb-4">${title}</h2>
+                    <p class="text-xl text-gray-600 mb-6">${message}</p>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-6 max-w-md mx-auto mb-8">
+                    <div class="bg-blue-50 p-6 rounded-2xl">
+                        <div class="text-sm text-gray-600 mb-2">你的得分</div>
+                        <div class="text-4xl font-black text-blue-600">${gameState.player1.score}</div>
+                    </div>
+                    <div class="bg-red-50 p-6 rounded-2xl">
+                        <div class="text-sm text-gray-600 mb-2">${gameState.player2.name}</div>
+                        <div class="text-4xl font-black text-red-600">${gameState.player2.score}</div>
+                    </div>
+                </div>
+                
+                <div class="bg-purple-50 p-6 rounded-2xl">
+                    <h3 class="font-bold text-lg mb-4">📊 本場統計</h3>
+                    <div class="grid grid-cols-3 gap-4 text-center">
+                        <div>
+                            <div class="text-2xl font-bold text-purple-600">${gameState.questionNum}</div>
+                            <div class="text-xs text-gray-600">總題數</div>
+                        </div>
+                        <div>
+                            <div class="text-2xl font-bold text-green-600">${Math.round((gameState.player1.score / (gameState.questionNum * 100)) * 100)}%</div>
+                            <div class="text-xs text-gray-600">準確率</div>
+                        </div>
+                        <div>
+                            <div class="text-2xl font-bold text-orange-600">${Math.floor(gameState.player1.score / 10)}</div>
+                            <div class="text-xs text-gray-600">平均速度</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 開始練習
+        function startPractice() {
+            const category = document.getElementById('practiceCategory').value;
+            // 練習模式使用單一玩家
+            gameState.player2.name = '電腦';
+            initGame();
+        }
+
+        // 模擬房間列表
+        function renderRoomList() {
+            const rooms = [
+                { name: '王者爭霸房', mode: '百人爭霸', players: 45 },
+                { name: '好友 PK 房', mode: '1 vs 1', players: 1 },
+                { name: '科學知識競賽', mode: '2 vs 2', players: 3 }
+            ];
+            
+            const container = document.getElementById('roomList');
+            container.innerHTML = rooms.map(room => `
+                <div class="bg-gray-50 p-4 rounded-xl flex justify-between items-center hover:bg-gray-100 cursor-pointer transition">
+                    <div>
+                        <div class="font-bold">${room.name}</div>
+                        <div class="text-sm text-gray-500">${room.mode} · ${room.players}/100 人</div>
+                    </div>
+                    <button class="bg-purple-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-purple-700 transition">
+                        加入
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            renderRoomList();
+        });
+    </script>
+</body>
+</html>
