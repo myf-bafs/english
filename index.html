@@ -1277,9 +1277,9 @@
                         players.find(p=>p.uid===buyer.uid).money -= offer.price;
                         players.find(p=>p.uid===currentUser.uid).money += offer.price;
                         let props = {...roomState.properties}; props[tile.id] = { owner: buyer.uid, level: getPropData(tile.id).level || 1 };
-                        await update(getRoomRef(currentRoomId), { players, properties: props, 'buyoutOffer.status': 'accepted' });
+                        await update(getRoomRef(currentRoomId), { players, properties: props, buyoutOffer: { ...offer, status: 'accepted' } });
                     } else {
-                        await update(getRoomRef(currentRoomId), { 'buyoutOffer.status': 'rejected' });
+                        await update(getRoomRef(currentRoomId), { buyoutOffer: { ...offer, status: 'rejected' } });
                     }
                 });
             }
@@ -1303,13 +1303,13 @@
                             players[buyerIdx].money -= offer.price;
                             players[sellerIdx].money += offer.price;
                             let props = {...roomState.properties}; props[tile.id] = { owner: currentUser.uid, level: getPropData(tile.id).level || 1 };
-                            await update(getRoomRef(currentRoomId), { players, properties: props, 'tradeOffer.status': 'accepted' });
+                            await update(getRoomRef(currentRoomId), { players, properties: props, tradeOffer: { ...offer, status: 'accepted' } });
                         } else {
                             alert("資金不足");
-                            await update(getRoomRef(currentRoomId), { 'tradeOffer.status': 'rejected' });
+                            await update(getRoomRef(currentRoomId), { tradeOffer: { ...offer, status: 'rejected' } });
                         }
                     } else {
-                        await update(getRoomRef(currentRoomId), { 'tradeOffer.status': 'rejected' });
+                        await update(getRoomRef(currentRoomId), { tradeOffer: { ...offer, status: 'rejected' } });
                     }
                 });
             }
