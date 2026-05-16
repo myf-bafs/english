@@ -334,17 +334,22 @@
 
         const BAFS_QUESTIONS = [
             { q: "會計等式 (Accounting Equation) 是什麼？", options: ["資產 = 負債 + 資本", "資產 = 負債 - 資本", "資本 = 資產 + 負債"], ans: 0 },
-            { q: "以下哪項屬於企業的『流動資產』？", options: ["辦公室建築物", "存貨及現金", "五年期貸款"], ans: 1 },
+            { q: "以下哪項屬於企業的『流動資產 (Current Asset)』？", options: ["辦公室建築物", "存貨及現金", "五年期貸款"], ans: 1 },
             { q: "『有限責任』(Limited Liability) 是指什麼？", options: ["企業壽命有限", "股東只以其投資額為限承擔債務", "利潤設有上限"], ans: 1 },
             { q: "股票市場的『牛市 (Bull Market)』代表什麼？", options: ["股市長期上升", "股市長期下跌", "股市停滯不前"], ans: 0 },
-            { q: "進行 SWOT 分析時，'T' 代表什麼？", options: ["團隊 (Team)", "時間 (Time)", "威脅 (Threats)"], ans: 2 }
+            { q: "進行 SWOT 分析時，'T' 代表什麼？", options: ["團隊 (Team)", "時間 (Time)", "威脅 (Threats)"], ans: 2 },
+            { q: "如果企業資不抵債，哪種經營模式的擁有者其『個人財產』會受到保障？", options: ["獨資經營", "合夥經營", "有限責任公司"], ans: 2 },
+            { q: "在財務報表中，機器的『折舊 (Depreciation)』開支應記錄在哪裡？", options: ["損益表", "資產負債表", "現金流量表"], ans: 0 },
+            { q: "馬斯洛需求層次理論中，最高層次是什麼？", options: ["生理需求", "社交需求", "自我實現"], ans: 2 }
         ];
 
         const CHANCE_CARDS = [
             { msg: "經濟繁榮，政府派發消費券，獲得 $500！", amt: 500 },
             { msg: "通貨膨脹加劇，原材料成本上升，支付 $300。", amt: -300 },
             { msg: "公司成功上市 (IPO)，籌集資金 $1000！", amt: 1000 },
-            { msg: "勞工處巡查發現違規，罰款 $400。", amt: -400 }
+            { msg: "勞工處巡查發現違規，罰款 $400。", amt: -400 },
+            { msg: "贏得商業大獎，獲得獎金 $800！", amt: 800 },
+            { msg: "忘記繳納商業登記費，罰款 $500。", amt: -500 }
         ];
 
         // ==========================================
@@ -447,7 +452,6 @@
 
             let html = `<div class="max-h-[60vh] overflow-y-auto space-y-3 pr-2">`;
             
-            // 金融資產區
             html += `
                 <div class="bg-slate-100 p-3 rounded-lg border border-slate-200 flex justify-between items-center shadow-sm">
                     <span class="font-bold text-slate-600">💵 現金存款</span><span class="font-black ${player.money < 0 ? 'text-red-600' : 'text-emerald-600'}">$${player.money}</span>
@@ -463,7 +467,6 @@
                 html += `<div class="bg-emerald-50 text-emerald-700 text-xs font-bold text-center py-1 border border-emerald-200 rounded">🛡️ 已生效綜合商業保險</div>`;
             }
 
-            // 地產區
             if (myProps.length === 0) {
                 html += `<div class="text-center text-slate-500 py-2 text-sm font-bold bg-slate-50 rounded-xl border-2 border-dashed border-slate-200">暫無物業</div>`;
             } else {
@@ -472,7 +475,6 @@
                     const currentPrice = getCurrentPrice(tile);
                     const prop = getPropData(tileId);
                     totalVal += currentPrice;
-                    
                     html += `
                         <div class="border-2 p-2 rounded-xl bg-white shadow-sm flex flex-col gap-1 hover:bg-slate-50 transition" style="border-color: ${tile.color}">
                             <div class="flex justify-between items-center font-black text-sm text-slate-800">
@@ -494,6 +496,64 @@
             </div>`;
 
             showModal(`💼 ${player.name} 的投資組合`, html, [{text: '關閉', style: 'bg-slate-600 hover:bg-slate-500'}]);
+        };
+
+        const showPropertyCard = (tile) => {
+            if (tile.type !== 'property') return;
+            
+            let ownerName = "🏦 銀行 (未被收購)";
+            let ownerColor = "#ccc";
+            let level = 0;
+            
+            const prop = getPropData(tile.id);
+            if (prop) {
+                const p = roomState.players.find(p => p.uid === prop.owner);
+                if (p) {
+                    ownerName = `👤 ${p.name}`;
+                    ownerColor = p.color;
+                    level = prop.level;
+                }
+            }
+
+            const currentPrice = getCurrentPrice(tile);
+            const currentRent = getCurrentRent(tile, level > 0 ? level : 1);
+            let levelStars = level > 0 ? Array(level).fill('⭐').join('') : '無';
+
+            let priceTrend = "";
+            if (currentPrice > tile.price) priceTrend = `<span class="trend-up">▲ (+${Math.round((currentPrice/tile.price-1)*100)}%)</span>`;
+            else if (currentPrice < tile.price) priceTrend = `<span class="trend-down">▼ (${Math.round((currentPrice/tile.price-1)*100)}%)</span>`;
+
+            const html = `
+                <div class="border-4 rounded-xl overflow-hidden shadow-lg" style="border-color: ${tile.color};">
+                    <div class="py-4 text-center font-black text-white text-2xl tracking-widest relative" style="background-color: ${tile.color};">
+                        ${tile.name}
+                    </div>
+                    <div class="p-6 bg-[#fbf8ef] space-y-4 text-slate-800">
+                        <div class="flex justify-between items-center border-b border-slate-300 pb-2">
+                            <span class="font-bold">最新市值 (Price)</span>
+                            <div class="text-right">
+                                <span class="text-xl font-black">$${currentPrice}</span><br>
+                                <span class="text-xs">${priceTrend || '平穩'}</span>
+                            </div>
+                        </div>
+                        <div class="flex justify-between items-center border-b border-slate-300 pb-2">
+                            <span class="font-bold text-blue-600">建築等級 (Level)</span>
+                            <span class="text-lg font-black text-blue-600">${levelStars}</span>
+                        </div>
+                        <div class="flex justify-between items-center border-b border-slate-300 pb-2">
+                            <span class="font-bold text-red-600">現時租金 (Rent)</span>
+                            <span class="text-xl font-black text-red-600">$${currentRent}</span>
+                        </div>
+                        <div class="pt-4 text-center">
+                            <p class="text-sm text-slate-500 mb-1">現時業權擁有者</p>
+                            <div class="inline-block px-4 py-2 rounded-full font-bold text-white shadow-sm" style="background-color: ${ownerColor}">
+                                ${ownerName}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            showModal(`<span class="flex items-center gap-2">📄 地契資料</span>`, html, [{text: '關閉', style: 'bg-slate-500 hover:bg-slate-600'}]);
         };
 
         // ==========================================
@@ -603,13 +663,11 @@
                 showView('view-game');
                 document.getElementById('game-room-code').innerText = roomState.roomCode;
                 
-                // 更新經濟指示器
                 const ecoEl = document.getElementById('eco-indicator');
                 ecoEl.innerText = `🌍 經濟：${roomState.ecoCycle}期`;
                 ecoEl.className = `px-4 py-1 rounded-full font-bold text-xs md:text-sm shadow-sm mt-1 mb-2 ${ECO_STYLES[roomState.ecoCycle]}`;
                 document.getElementById('stock-price-display').innerText = `$${roomState.stockPrice}`;
 
-                // 教師控制台
                 if (roomState.hostId === currentUser.uid) document.getElementById('host-panel').classList.remove('hidden');
 
                 renderBoard();
@@ -617,7 +675,7 @@
                 renderLogs();
                 checkTurnState();
                 handleBuyoutOfferObserver(); 
-                handleTradeOfferObserver(); // 新增：處理破產變賣的報價接收
+                handleTradeOfferObserver(); 
             }
         };
 
@@ -637,12 +695,17 @@
                 div.className = `tile tile-${tile.type}`;
                 const pos = getTileGridPosition(tile.id);
                 div.style.gridColumn = pos.col; div.style.gridRow = pos.row;
+                div.onclick = () => showPropertyCard(tile);
                 
                 let contentHTML = '';
                 if (tile.type === 'property') {
                     const cPrice = getCurrentPrice(tile);
+                    let trendIcon = '';
+                    if (cPrice > tile.price) trendIcon = `<span class="text-emerald-500 text-[8px] ml-1">▲</span>`;
+                    else if (cPrice < tile.price) trendIcon = `<span class="text-red-500 text-[8px] ml-1">▼</span>`;
+
                     contentHTML += `<div class="tile-color-header" style="background-color: ${tile.color}"></div>`;
-                    contentHTML += `<div class="tile-body"><div class="tile-name mt-1">${tile.name}</div><div class="tile-price mb-1">$${cPrice}</div></div>`;
+                    contentHTML += `<div class="tile-body"><div class="tile-name mt-1">${tile.name}</div><div class="tile-price mb-1">$${cPrice}${trendIcon}</div></div>`;
                 } else {
                     contentHTML += `<div class="tile-body justify-center"><div class="tile-name">${tile.name}</div>`;
                     if (tile.desc) contentHTML += `<div class="tile-desc">${tile.desc}</div>`;
@@ -783,16 +846,14 @@
             let nextTurnIndex = roomState.turnIndex + 1;
             let updates = { players, logs, turnIndex: nextTurnIndex };
             
-            // 每過一輪，機率變更市場
             if (nextTurnIndex > 0 && nextTurnIndex % players.length === 0) {
-                if (Math.random() < 0.25) { // 25% 機率換週期
+                if (Math.random() < 0.25) { 
                     let currIdx = ECO_PHASES.indexOf(roomState.ecoCycle);
                     let nextCycle = ECO_PHASES[(currIdx + 1) % ECO_PHASES.length];
                     updates.ecoCycle = nextCycle;
                     logs.push(`🌍 【經濟轉型】全球經濟進入『${nextCycle}』期。`);
                 }
-                // 股票隨機波動
-                let change = (Math.random() * 0.4) - 0.15; // -15% to +25%
+                let change = (Math.random() * 0.4) - 0.15; 
                 if (updates.ecoCycle === '繁榮' || roomState.ecoCycle === '繁榮') change += 0.2;
                 if (updates.ecoCycle === '蕭條' || roomState.ecoCycle === '蕭條') change -= 0.3;
                 let newStock = Math.max(10, Math.floor(roomState.stockPrice * (1 + change)));
@@ -806,7 +867,7 @@
                 await processEndOfTurnAndUpdate(playerData, pIndex, logs);
             } else {
                 const myProps = Object.keys(roomState.properties).filter(k => { const p = getPropData(k); return p && p.owner === playerData.uid; });
-                if (myProps.length === 0 && (playerData.stocks || 0) === 0) { // 沒地沒股票
+                if (myProps.length === 0 && (playerData.stocks || 0) === 0) { 
                     playerData.isBankrupt = true;
                     logs.push(`💀 ${playerData.name} 資不抵債，正式破產！`);
                     await processEndOfTurnAndUpdate(playerData, pIndex, logs);
@@ -819,7 +880,7 @@
         };
 
         // ==========================================
-        // 7. 金融中心 (借貸、股票、保險)
+        // 7. 金融中心 (借貸、股票數量買賣、保險)
         // ==========================================
         document.getElementById('btn-finance').onclick = () => {
             const pIdx = roomState.turnIndex % roomState.players.length;
@@ -840,16 +901,18 @@
                         </div>
                     </div>
                     
-                    <!-- 股票 -->
+                    <!-- 股票 (已新增股數選擇) -->
                     <div class="bg-blue-50 p-4 rounded-xl border border-blue-200">
                         <div class="flex justify-between items-center mb-2">
                             <span class="font-bold text-blue-800">📈 恆指 ETF</span>
-                            <span class="text-sm text-blue-600">現價: $${roomState.stockPrice} | 持有: ${player.stocks || 0}</span>
+                            <span class="text-sm text-blue-600">現價: <b class="text-blue-700">$${roomState.stockPrice}</b> | 持有: <b>${player.stocks || 0}</b> 股</span>
                         </div>
-                        <p class="text-xs text-slate-500 mb-2">經過起點派發 5% 股息。價格隨經濟波動。</p>
-                        <div class="flex gap-2">
-                            <button onclick="window.financeAction('buyStock')" class="flex-1 bg-blue-600 text-white text-sm py-2 rounded shadow hover:bg-blue-500">買入 1 股</button>
-                            <button onclick="window.financeAction('sellStock')" class="flex-1 bg-slate-600 text-white text-sm py-2 rounded shadow hover:bg-slate-500" ${(player.stocks||0)>0?'':'disabled'}>賣出 1 股</button>
+                        <p class="text-xs text-slate-500 mb-3">經過起點派發 5% 股息。價格隨經濟波動。</p>
+                        <div class="flex items-center gap-2">
+                            <input type="number" id="stock-qty" value="1" min="1" class="w-16 p-2 rounded shadow-inner border border-blue-200 text-center font-bold text-blue-700 focus:outline-none focus:border-blue-400">
+                            <span class="text-sm font-bold text-slate-600">股</span>
+                            <button onclick="window.financeAction('buyStock')" class="flex-1 bg-blue-600 text-white text-sm py-2 rounded shadow hover:bg-blue-500 ml-2">買入</button>
+                            <button onclick="window.financeAction('sellStock')" class="flex-1 bg-slate-600 text-white text-sm py-2 rounded shadow hover:bg-slate-500" ${(player.stocks||0)>0?'':'disabled'}>賣出</button>
                         </div>
                     </div>
 
@@ -872,10 +935,29 @@
                 let logs = [...roomState.logs];
                 
                 if (act === 'borrow') { p.money += 1000; p.loan = (p.loan||0) + 1000; logs.push(`🏦 ${p.name} 向銀行貸款 $1,000。`); }
-                if (act === 'repay' && p.loan > 0 && p.money >= 1000) { p.money -= 1000; p.loan -= 1000; logs.push(`🏦 ${p.name} 償還銀行貸款 $1,000。`); }
-                if (act === 'buyStock' && p.money >= roomState.stockPrice) { p.money -= roomState.stockPrice; p.stocks = (p.stocks||0) + 1; logs.push(`📈 ${p.name} 買入 1 股恆指 ETF。`); }
-                if (act === 'sellStock' && p.stocks > 0) { p.money += roomState.stockPrice; p.stocks -= 1; logs.push(`📉 ${p.name} 賣出 1 股恆指 ETF。`); }
-                if (act === 'buyIns' && !p.insurance && p.money >= 500) { p.money -= 500; p.insurance = true; logs.push(`🛡️ ${p.name} 購買了綜合商業保險。`); }
+                if (act === 'repay') { 
+                    if (p.loan > 0 && p.money >= 1000) { p.money -= 1000; p.loan -= 1000; logs.push(`🏦 ${p.name} 償還銀行貸款 $1,000。`); }
+                    else { alert("現金不足或沒有貸款！"); return; }
+                }
+                
+                if (act === 'buyStock' || act === 'sellStock') {
+                    let qty = parseInt(document.getElementById('stock-qty').value) || 1;
+                    if (qty <= 0) return;
+                    let totalCost = roomState.stockPrice * qty;
+                    
+                    if (act === 'buyStock') {
+                        if (p.money >= totalCost) { p.money -= totalCost; p.stocks = (p.stocks||0) + qty; logs.push(`📈 ${p.name} 買入 ${qty} 股恆指 ETF (共 $${totalCost})。`); }
+                        else { alert("你的現金不足以購買這麼多股票！"); return; }
+                    } else if (act === 'sellStock') {
+                        if ((p.stocks||0) >= qty) { p.money += totalCost; p.stocks -= qty; logs.push(`📉 ${p.name} 賣出 ${qty} 股恆指 ETF (套現 $${totalCost})。`); }
+                        else { alert("你沒有足夠的股票數量可以賣出！"); return; }
+                    }
+                }
+                
+                if (act === 'buyIns') {
+                    if (!p.insurance && p.money >= 500) { p.money -= 500; p.insurance = true; logs.push(`🛡️ ${p.name} 購買了綜合商業保險。`); }
+                    else if (p.money < 500) { alert("資金不足購買保險！"); return; }
+                }
 
                 await update(getRoomRef(currentRoomId), { players, logs });
                 document.getElementById('global-modal').classList.add('hidden');
@@ -1081,17 +1163,18 @@
             if (window.isLiquidating) return; window.isLiquidating = true;
             let html = `<div class="bg-red-50 text-red-600 font-bold p-3 rounded-lg mb-4 text-center border border-red-200">🚨 必須變賣資產直到資金為正數！</div>`;
             
-            // 賣股票
+            // 賣股票 (破產時為求快速，一鍵全部套現)
             if (player.stocks > 0) {
+                let allStockVal = player.stocks * roomState.stockPrice;
                 html += `<div class="border-2 border-blue-200 p-3 rounded-xl mb-3 flex justify-between items-center bg-blue-50">
-                    <span>📈 恆指 ETF (${player.stocks}股) - $${roomState.stockPrice}/股</span>
-                    <button onclick="window.sellStockLiq()" class="bg-blue-600 text-white px-3 py-1 rounded">賣出</button>
+                    <span>📈 恆指 ETF (${player.stocks}股) - 總值 $${allStockVal}</span>
+                    <button onclick="window.sellStockLiq()" class="bg-blue-600 text-white px-3 py-1 rounded">全數賣出</button>
                 </div>`;
                 window.sellStockLiq = async () => {
                     document.getElementById('global-modal').classList.add('hidden'); window.isLiquidating = false;
                     let pIdx = roomState.turnIndex % roomState.players.length; let players = [...roomState.players];
-                    players[pIdx].money += roomState.stockPrice; players[pIdx].stocks -= 1;
-                    await update(getRoomRef(currentRoomId), { players });
+                    players[pIdx].money += allStockVal; players[pIdx].stocks = 0;
+                    await update(getRoomRef(currentRoomId), { players, logs: [...roomState.logs, `📉 ${players[pIdx].name} 破產變賣所有股票，套現 $${allStockVal}。`] });
                 };
             }
 
@@ -1235,7 +1318,7 @@
         const triggerBAFSQuestion = () => {
             return new Promise((resolve) => {
                 const q = BAFS_QUESTIONS[Math.floor(Math.random() * BAFS_QUESTIONS.length)];
-                let html = `<div class="text-red-600 font-bold mb-2">⏳ 剩餘時間: <span id="bafs-timer">15</span>秒</div><p class="font-black text-lg mb-4 text-slate-800">${q.q}</p><div class="space-y-3">`;
+                let html = `<div class="text-red-600 font-bold mb-2 flex items-center justify-between"><span class="animate-pulse">⏳ 剩餘時間</span><span id="bafs-timer" class="text-2xl">15</span></div><p class="font-black text-lg mb-4 text-slate-800">${q.q}</p><div class="space-y-3">`;
                 q.options.forEach((opt, i) => { html += `<button class="w-full text-left p-3 border-2 rounded-xl hover:bg-blue-50 font-bold text-slate-700 bafs-ans-btn" data-idx="${i}">${String.fromCharCode(65+i)}. ${opt}</button>`; });
                 html += `</div>`;
                 
