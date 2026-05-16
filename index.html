@@ -1,450 +1,1448 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html lang="zh-HK">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AI Smart Finance - 廣東話語音記帳</title>
-    
-    <!-- PWA Meta Tags -->
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="AI 記帳">
-    <meta name="theme-color" content="#2563eb">
-    
+    <title>BAFS 香港大富翁</title>
+    <!-- 引入 Tailwind CSS 進行快速排版 -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+HK:wght@400;700;900&display=swap');
         
-        body {
-            font-family: 'Noto Sans TC', sans-serif;
-            background-color: #f8fafc;
-            -webkit-tap-highlight-color: transparent;
+        body { 
+            font-family: 'Noto Sans HK', sans-serif; 
+            /* 高質感深色背景 */
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #064e3b 100%);
+            color: #333;
+            overflow: hidden;
+        }
+        
+        /* 大富翁棋盤網格設計 (全響應式) */
+        .board-wrapper {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 10px;
         }
 
-        .glass-card {
-            background: rgba(255, 255, 255, 0.9);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.3);
+        .board-grid {
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            grid-template-rows: repeat(11, 1fr);
+            gap: 2px;
+            width: 100%;
+            max-width: 95vh;
+            aspect-ratio: 12 / 11;
+            background-color: #1e293b;
+            border: 8px solid #0f172a;
+            border-radius: 12px;
+            padding: 4px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
         }
 
-        .loader {
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #3b82f6;
-            border-radius: 50%;
-            width: 20px;
-            height: 20px;
-            animation: spin 1s linear infinite;
-            display: inline-block;
-            vertical-align: middle;
-        }
-
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-
-        .tab-content { display: none; animation: fadeIn 0.3s ease-in-out; }
-        .tab-content.active { display: block; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-
-        .currency-tag {
-            font-size: 0.65rem;
-            padding: 1px 4px;
+        .tile {
+            background-color: #fbf8ef;
             border-radius: 4px;
-            background: #e2e8f0;
-            color: #475569;
-            margin-left: 4px;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            box-shadow: inset 0 0 5px rgba(0,0,0,0.05);
+            overflow: hidden;
+            transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s;
+            cursor: pointer;
+            border: 1px solid #cbd5e1;
         }
 
-        .recording {
-            animation: pulse 1.5s infinite;
-            color: #ef4444 !important;
-            background-color: #fee2e2 !important;
+        .tile:hover {
+            transform: scale(1.15);
+            z-index: 20;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.4);
+            border-color: #fbbf24;
         }
 
-        @keyframes pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.1); opacity: 0.7; }
-            100% { transform: scale(1); }
+        /* 經典色帶設計 */
+        .tile-color-header {
+            height: 28%;
+            width: 100%;
+            border-bottom: 2px solid #1e293b;
         }
+
+        .tile-body {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            padding: 2px 1px;
+            text-align: center;
+        }
+
+        /* 文字響應式 */
+        .tile-name { font-weight: 900; font-size: clamp(0.45rem, 1.2vw, 0.8rem); line-height: 1.1; color: #1e293b; }
+        .tile-price { font-size: clamp(0.4rem, 1vw, 0.65rem); font-weight: bold; color: #475569; display: flex; align-items: center; gap: 2px; }
+        .tile-desc { font-size: clamp(0.35rem, 0.8vw, 0.55rem); color: #64748b; line-height: 1; margin-top: 2px; }
+        
+        /* 特殊格子背景漸層 */
+        .tile-start { background: linear-gradient(135deg, #fef08a 0%, #eab308 100%); justify-content: center; }
+        .tile-chance { background: linear-gradient(135deg, #f3e8ff 0%, #d8b4fe 100%); justify-content: center; }
+        .tile-tax { background: linear-gradient(135deg, #fecaca 0%, #f87171 100%); color: #7f1d1d; justify-content: center; }
+        .tile-rest { background: linear-gradient(135deg, #bfdbfe 0%, #60a5fa 100%); justify-content: center; }
+        
+        /* 棋盤中央區域 */
+        .board-center {
+            grid-column: 2 / 12;
+            grid-row: 2 / 11;
+            background: radial-gradient(circle, #fbf8ef 0%, #e2e8f0 100%);
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 10px;
+            text-align: center;
+            box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.1);
+            border: 4px dashed #94a3b8;
+            margin: 4px;
+            position: relative;
+        }
+
+        /* 玩家棋子 */
+        .token-container {
+            position: absolute;
+            inset: auto 0 2px 0;
+            display: flex;
+            gap: 2px;
+            flex-wrap: wrap;
+            justify-content: center;
+            width: 100%;
+            pointer-events: none;
+        }
+        
+        .token {
+            width: clamp(14px, 2vw, 22px);
+            height: clamp(14px, 2vw, 22px);
+            border-radius: 50%;
+            border: 2px solid white;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: clamp(8px, 1.2vw, 12px);
+            z-index: 10;
+            background: linear-gradient(135deg, rgba(255,255,255,0.2) 0%, rgba(0,0,0,0.1) 100%);
+            animation: float 2s ease-in-out infinite;
+        }
+
+        /* 隱藏捲軸 */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        /* 動畫庫 */
+        @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+        .modal-animate { animation: fadeIn 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-3px); }
+        }
+
+        @keyframes diceShake {
+            0% { transform: rotate(0deg) scale(1); }
+            25% { transform: rotate(-25deg) scale(1.3); }
+            50% { transform: rotate(25deg) scale(1.3); }
+            75% { transform: rotate(-15deg) scale(1.3); }
+            100% { transform: rotate(0deg) scale(1); }
+        }
+        .animate-dice { animation: diceShake 0.4s ease-in-out; }
+        
+        @keyframes popIn {
+            0% { transform: scale(0) translateY(-20px) rotate(-10deg); opacity: 0; }
+            70% { transform: scale(1.3) translateY(5px) rotate(5deg); opacity: 1; }
+            100% { transform: scale(1) translateY(0) rotate(0); opacity: 1; }
+        }
+        .token-animate { animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+
+        /* 業主標示環 */
+        .owner-ring {
+            position: absolute;
+            inset: 0;
+            border: 3px solid transparent;
+            border-radius: 4px;
+            pointer-events: none;
+            opacity: 0.8;
+        }
+        
+        /* 市場趨勢顏色 */
+        .trend-up { color: #10b981; font-weight: bold; }
+        .trend-down { color: #ef4444; font-weight: bold; }
+        
+        /* 玩家列表懸停效果 */
+        .player-card:hover { background-color: rgba(241, 245, 249, 0.8); cursor: pointer; }
     </style>
 </head>
-<body class="pb-24">
+<body class="h-screen flex flex-col text-slate-800">
 
-    <div class="max-w-4xl mx-auto p-4 md:p-8">
+    <!-- 頂部導航 -->
+    <header class="bg-slate-900/80 backdrop-blur-md text-white p-3 shadow-lg flex justify-between items-center z-20 border-b border-slate-700">
+        <h1 class="text-lg md:text-2xl font-black flex items-center gap-2 text-yellow-400 drop-shadow-md">
+            <span class="text-2xl">🏦</span> BAFS 商業大亨
+        </h1>
+        <div id="user-info" class="text-sm md:text-base hidden bg-slate-800 px-4 py-1 rounded-full border border-slate-600 shadow-inner">
+            <span id="display-name" class="font-bold text-white"></span>
+        </div>
+    </header>
+
+    <main class="flex-1 relative overflow-hidden flex flex-col">
         
-        <header class="flex justify-between items-center mb-6">
-            <div class="flex items-baseline gap-2">
-                <h1 id="pageTitle" class="text-2xl font-bold text-slate-800">儀表板</h1>
-                <span class="text-xs text-blue-500 font-bold bg-blue-50 px-2 py-0.5 rounded-full">v2.2</span>
+        <!-- 視圖 1: 登入 -->
+        <div id="view-login" class="absolute inset-0 flex flex-col items-center justify-center p-6 z-30">
+            <div class="bg-white/95 backdrop-blur p-8 rounded-2xl shadow-2xl max-w-sm w-full text-center border border-white/50">
+                <div class="text-7xl mb-4 drop-shadow-lg">👔</div>
+                <h2 class="text-2xl font-black text-slate-800 mb-6">創建你的商業帝國</h2>
+                <input type="text" id="input-name" placeholder="輸入董事長大名..." class="w-full border-2 border-slate-200 rounded-xl p-4 mb-6 focus:outline-none focus:border-yellow-500 focus:ring-4 focus:ring-yellow-500/20 text-center text-lg font-bold bg-slate-50 transition-all">
+                <button id="btn-login" class="w-full bg-gradient-to-r from-yellow-500 to-amber-600 hover:from-yellow-400 hover:to-amber-500 text-white font-black py-4 rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-1 text-lg">進入交易所</button>
             </div>
-            <div class="hidden md:flex gap-4">
-                <button onclick="switchTab('dashboard')" class="text-slate-500 hover:text-blue-600 font-medium px-3 py-1">首頁</button>
-                <button onclick="switchTab('history')" class="text-slate-500 hover:text-blue-600 font-medium px-3 py-1">明細</button>
-                <button onclick="switchTab('settings')" class="text-slate-500 hover:text-blue-600 font-medium px-3 py-1">設定</button>
-            </div>
-        </header>
+        </div>
 
-        <!-- 1. 儀表板分頁 -->
-        <div id="tab-dashboard" class="tab-content active space-y-6">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div class="bg-blue-600 p-8 rounded-3xl text-white shadow-xl shadow-blue-200">
-                    <p class="text-blue-100 text-sm opacity-80 uppercase tracking-wider">本月總支出 (HKD)</p>
-                    <h3 class="text-4xl font-bold mt-2">$ <span id="totalAmount">0</span></h3>
+        <!-- 視圖 2: 遊戲大廳 -->
+        <div id="view-lobby" class="absolute inset-0 flex flex-col items-center justify-center p-6 z-20 hidden">
+            <div class="bg-white/95 backdrop-blur p-8 rounded-2xl shadow-2xl max-w-md w-full text-center border border-white/50">
+                <h2 class="text-3xl font-black text-slate-800 mb-6">遊戲大廳</h2>
+                
+                <div class="mb-6 p-5 bg-slate-50 rounded-xl border border-slate-200">
+                    <h3 class="font-bold text-slate-500 mb-3 text-sm tracking-wider">開創新局</h3>
+                    <button id="btn-create-room" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl shadow-md transition-all">創建專屬房間</button>
                 </div>
-                <div class="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm">
-                    <p class="text-slate-500 text-sm">今日花費 (HKD)</p>
-                    <h3 class="text-3xl font-bold mt-2 text-slate-800">$ <span id="todayAmount">0</span></h3>
-                </div>
-            </div>
 
-            <!-- AI 功能區 -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <!-- 拍照辨識 -->
-                <div class="glass-card p-6 rounded-3xl shadow-sm border border-slate-200">
-                    <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
-                        <i class="fa-solid fa-camera text-blue-500"></i> 拍照記帳
-                    </h2>
-                    <div class="border-2 border-dashed border-blue-100 bg-blue-50/50 rounded-2xl p-6 text-center cursor-pointer hover:border-blue-400 transition" onclick="document.getElementById('fileInput').click()">
-                        <p class="text-sm text-blue-600 font-medium">拍攝收據提取商戶名</p>
-                        <input type="file" id="fileInput" class="hidden" accept="image/*" onchange="handleImageUpload(event)">
+                <div class="flex items-center my-4 opacity-50">
+                    <div class="flex-1 border-t-2 border-slate-300"></div>
+                    <span class="px-4 text-slate-500 font-bold">OR</span>
+                    <div class="flex-1 border-t-2 border-slate-300"></div>
+                </div>
+
+                <div class="p-5 bg-slate-50 rounded-xl border border-slate-200">
+                    <h3 class="font-bold text-slate-500 mb-3 text-sm tracking-wider">參與競爭</h3>
+                    <div class="flex gap-2">
+                        <input type="text" id="input-room-code" placeholder="4位數代碼" class="flex-1 border-2 border-slate-200 rounded-xl p-3 text-center tracking-widest text-2xl font-mono focus:outline-none focus:border-blue-500 uppercase" maxlength="4">
+                        <button id="btn-join-room" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 px-6 rounded-xl shadow-md transition-all">加入</button>
                     </div>
                 </div>
+                <p id="lobby-msg" class="text-red-500 font-bold text-sm mt-4 hidden animate-pulse"></p>
+            </div>
+        </div>
 
-                <!-- 廣東話語音/文字辨識 -->
-                <div class="glass-card p-6 rounded-3xl shadow-sm border border-slate-200">
-                    <div class="flex justify-between items-center mb-4">
-                        <h2 class="text-lg font-bold flex items-center gap-2">
-                            <i class="fa-solid fa-microphone text-purple-500"></i> 廣東話語音
-                        </h2>
-                        <button id="voiceBtn" onclick="toggleVoice()" class="w-10 h-10 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center transition">
-                            <i class="fa-solid fa-microphone"></i>
+        <!-- 視圖 3: 等候室 -->
+        <div id="view-waiting" class="absolute inset-0 flex flex-col items-center justify-center p-6 z-20 hidden">
+            <div class="bg-white/95 backdrop-blur p-8 rounded-2xl shadow-2xl max-w-md w-full text-center border border-white/50">
+                <h2 class="text-2xl font-black text-slate-800 mb-2">準備開市</h2>
+                <div class="text-5xl font-mono font-black tracking-[0.2em] text-blue-600 my-6 bg-blue-50 py-4 rounded-xl border-2 border-blue-200 shadow-inner" id="display-room-code">----</div>
+                
+                <div class="flex justify-between items-end border-b-2 border-slate-100 pb-2 mb-4">
+                    <h3 class="font-bold text-slate-600">與會董事</h3>
+                    <span class="bg-slate-200 text-slate-600 text-xs font-bold px-2 py-1 rounded-full"><span id="player-count">0</span>/4</span>
+                </div>
+                
+                <ul id="waiting-player-list" class="text-left mb-8 space-y-3 min-h-[120px]">
+                    <!-- Players inserted here -->
+                </ul>
+
+                <button id="btn-start-game" class="w-full bg-emerald-500 hover:bg-emerald-400 text-white font-black py-4 rounded-xl shadow-lg transition-all transform hover:-translate-y-1 text-lg hidden">正式開盤 ➔</button>
+                <p id="waiting-msg" class="text-slate-500 font-bold mt-2 animate-pulse">等待房主敲響開市鐘...</p>
+            </div>
+        </div>
+
+        <!-- 視圖 4: 遊戲主畫面 -->
+        <div id="view-game" class="absolute inset-0 flex flex-col lg:flex-row hidden overflow-hidden">
+            
+            <!-- 左側：棋盤區 -->
+            <div class="flex-1 p-2 md:p-4 lg:p-6 flex items-center justify-center overflow-auto board-wrapper no-scrollbar">
+                <div class="board-grid relative" id="board">
+                    <!-- Tiles will be generated by JS -->
+                    <div class="board-center">
+                        <div class="absolute top-4 right-4 bg-slate-800 text-white px-3 py-1 rounded-full text-xs font-mono font-bold shadow">
+                            ROOM: <span id="game-room-code" class="text-yellow-400"></span>
+                        </div>
+                        <h2 class="text-3xl md:text-5xl font-black text-slate-800 tracking-tighter drop-shadow-md mb-2">BAFS</h2>
+                        <h3 class="text-xl md:text-2xl font-bold text-slate-600 tracking-widest mb-4">商業大亨</h3>
+                        
+                        <div class="w-full max-w-[200px] h-[2px] bg-slate-300 my-2"></div>
+                        
+                        <div id="dice-display" class="text-6xl md:text-7xl my-4 drop-shadow-xl filter">🎲</div>
+                        <div id="turn-indicator" class="font-bold text-lg md:text-xl text-blue-600 bg-blue-50 px-6 py-2 rounded-full shadow-sm animate-pulse">等待開始...</div>
+                        
+                        <button id="btn-roll" class="mt-6 bg-gradient-to-b from-red-500 to-red-700 hover:from-red-400 hover:to-red-600 border-b-4 border-red-900 text-white font-black py-3 px-10 rounded-full shadow-2xl transition-all transform hover:-translate-y-1 active:translate-y-1 active:border-b-0 hidden text-xl md:text-2xl">
+                            擲骰子
                         </button>
                     </div>
-                    <div class="flex flex-col gap-2">
-                        <textarea id="quickText" placeholder="點擊右上方麥克風講話，或貼上銀行簡訊..." class="w-full h-20 p-3 text-sm bg-slate-50 border border-slate-100 rounded-xl outline-none focus:ring-2 focus:ring-purple-400"></textarea>
-                        <button onclick="handleTextAI()" class="bg-purple-600 text-white p-2 rounded-xl text-sm font-bold hover:bg-purple-700">AI 辨識內容</button>
+                </div>
+            </div>
+
+            <!-- 右側：資訊面板區 -->
+            <div class="w-full lg:w-[360px] h-[35vh] lg:h-full bg-white/95 backdrop-blur shadow-2xl border-l border-slate-200 flex flex-col z-10">
+                <div class="p-4 bg-slate-800 text-white flex justify-between items-center">
+                    <h3 class="font-black text-lg">📊 財務報表</h3>
+                    <span class="text-xs text-slate-300">💡 點擊玩家查看資產</span>
+                </div>
+                
+                <!-- 玩家列表 -->
+                <div id="in-game-players" class="flex-1 overflow-y-auto p-3 space-y-2 bg-slate-50">
+                    <!-- Player stats generated by JS -->
+                </div>
+                
+                <!-- 遊戲紀錄 -->
+                <div class="h-1/2 lg:h-2/5 flex flex-col border-t-2 border-slate-200">
+                    <div class="bg-slate-200 text-xs font-black text-slate-600 p-2 px-4 uppercase tracking-wider flex items-center gap-2">
+                        <span>📜</span> 市場動態紀錄
                     </div>
-                </div>
-            </div>
-
-            <div id="aiStatus" class="mt-4 text-sm text-center hidden">
-                <span class="loader mr-2"></span> <span id="statusText" class="text-slate-600">AI 正在努力分析中...</span>
-            </div>
-
-            <div class="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
-                <div class="p-5 border-b border-slate-100 flex justify-between items-center">
-                    <h2 class="font-bold text-slate-800">最近記錄</h2>
-                    <button onclick="switchTab('history')" class="text-sm text-blue-600">查看全部</button>
-                </div>
-                <div id="recentList" class="divide-y divide-slate-100"></div>
-            </div>
-        </div>
-
-        <!-- 2. 消費明細分頁 -->
-        <div id="tab-history" class="tab-content space-y-6">
-            <div class="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
-                <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                    <h2 class="text-xl font-bold text-slate-800">所有消費明細 (HKD)</h2>
-                    <button onclick="clearData()" class="p-2 text-red-500 bg-red-50 rounded-lg hover:bg-red-100 transition">
-                        <i class="fa-solid fa-trash-can"></i>
-                    </button>
-                </div>
-                <div id="expenseList" class="divide-y divide-slate-100 min-h-[400px]"></div>
-            </div>
-
-            <!-- 手動新增 -->
-            <div class="glass-card p-6 rounded-3xl shadow-sm border border-slate-200">
-                <h2 class="text-lg font-bold mb-4 text-slate-800">手動補錄</h2>
-                <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
-                    <input type="text" id="manualMerchant" placeholder="店名/餐廳名" class="col-span-2 p-3 rounded-xl border border-slate-200 outline-none">
-                    <input type="number" id="manualAmount" placeholder="金額" class="p-3 rounded-xl border border-slate-200 outline-none">
-                    <select id="manualCurrency" class="p-3 rounded-xl border border-slate-200 outline-none">
-                        <option value="HKD">HKD</option>
-                        <option value="TWD">TWD</option>
-                        <option value="JPY">JPY</option>
-                        <option value="USD">USD</option>
-                        <option value="CNY">CNY</option>
-                    </select>
-                    <select id="manualCategory" class="p-3 rounded-xl border border-slate-200 outline-none">
-                        <option value="食">餐飲</option>
-                        <option value="衣">服飾</option>
-                        <option value="住">居家</option>
-                        <option value="行">交通</option>
-                        <option value="育">教育</option>
-                        <option value="樂">娛樂</option>
-                        <option value="其他">其他</option>
-                    </select>
-                    <button onclick="addExpenseManually()" class="col-span-2 md:col-span-5 bg-blue-600 text-white p-3 rounded-xl font-bold">新增記錄</button>
+                    <div id="game-logs" class="flex-1 overflow-y-auto p-4 text-xs space-y-2 font-mono text-slate-700 bg-white">
+                        <!-- Logs generated by JS -->
+                    </div>
                 </div>
             </div>
         </div>
+    </main>
 
-        <!-- 3. 設定分頁 -->
-        <div id="tab-settings" class="tab-content space-y-6">
-            <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
-                <h2 class="text-xl font-bold mb-4">系統設定</h2>
-                <div class="space-y-4">
-                    <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">ZhipuAI API Key</label>
-                        <div class="flex gap-2">
-                            <input type="password" id="apiKey" class="flex-1 p-3 rounded-xl border border-slate-200 outline-none">
-                            <button onclick="saveConfig()" class="bg-slate-800 text-white px-6 py-3 rounded-xl">儲存</button>
-                        </div>
-                    </div>
-                    <div class="pt-4 border-t border-slate-100">
-                        <h3 class="font-bold text-slate-800 mb-2">當前匯率參考</h3>
-                        <div id="exchangeRateInfo" class="text-xs text-slate-500 grid grid-cols-3 gap-2"></div>
-                    </div>
-                </div>
+    <!-- 全局模態框 -->
+    <div id="global-modal" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-sm md:max-w-md w-full modal-animate flex flex-col max-h-[90vh] overflow-hidden border border-slate-200">
+            <div id="modal-header" class="bg-gradient-to-r from-slate-800 to-slate-700 text-white p-5 font-black text-xl tracking-wide flex justify-between items-center">
+                <span>提示</span>
+            </div>
+            <div id="modal-body" class="p-6 text-slate-700 overflow-y-auto flex-1 text-base md:text-lg">
+                內容
+            </div>
+            <div id="modal-footer" class="bg-slate-50 p-4 border-t border-slate-200 flex justify-end gap-3 rounded-b-2xl">
+                <!-- Buttons injected by JS -->
             </div>
         </div>
     </div>
 
-    <nav class="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-md border-t border-slate-100 px-6 py-3 flex justify-around items-center md:hidden z-50">
-        <button onclick="switchTab('dashboard')" class="nav-item flex flex-col items-center gap-1 text-blue-600" id="nav-dashboard">
-            <i class="fa-solid fa-house text-xl"></i>
-            <span class="text-[10px] font-medium">首頁</span>
-        </button>
-        <button onclick="switchTab('history')" class="nav-item flex flex-col items-center gap-1 text-slate-400" id="nav-history">
-            <i class="fa-solid fa-list-ul text-xl"></i>
-            <span class="text-[10px] font-medium">明細</span>
-        </button>
-        <button onclick="switchTab('settings')" class="nav-item flex flex-col items-center gap-1 text-slate-400" id="nav-settings">
-            <i class="fa-solid fa-gear text-xl"></i>
-            <span class="text-[10px] font-medium">設定</span>
-        </button>
-    </nav>
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getDatabase, ref, set, update, get, onValue, push } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-database.js";
 
-    <script>
-        const DEFAULT_API_KEY = "272f193352024ce99416a7128bc499f6.QADLgmGclBxYOWYr";
-        let expenses = JSON.parse(localStorage.getItem('expenses')) || [];
-        let apiKey = localStorage.getItem('zhipu_api_key') || DEFAULT_API_KEY;
-        let rates = { "HKD": 1, "USD": 7.8, "JPY": 0.052, "TWD": 0.24, "CNY": 1.08, "EUR": 8.4, "GBP": 9.8 };
+        // ==========================================
+        // 1. 遊戲資料設定
+        // ==========================================
+        const PLAYER_STYLES = [
+            { color: '#ef4444', icon: '💼', role: '總裁' },
+            { color: '#3b82f6', icon: '🚀', role: '創業家' },
+            { color: '#10b981', icon: '💎', role: '投資家' },
+            { color: '#f59e0b', icon: '📈', role: '分析師' }
+        ];
 
-        // 語音辨識初始化
-        let recognition;
-        let isRecording = false;
+        const C_BROWN = '#8B4513'; const C_LBLUE = '#87CEEB'; const C_PINK = '#db2777'; 
+        const C_ORANGE = '#f97316'; const C_RED = '#dc2626'; const C_YELLOW = '#eab308'; 
+        const C_GREEN = '#16a34a'; const C_PURPLE = '#9333ea'; const C_BLUE = '#2563eb'; 
+        const C_DGREEN = '#065f46'; const C_DBLUE = '#1e3a8a';
 
-        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            recognition = new SpeechRecognition();
-            recognition.lang = 'zh-HK'; // 設定為香港廣東話
-            recognition.continuous = false;
-            recognition.interimResults = false;
+        const MAP_TILES = [
+            { id: 0, name: "起點", type: "start", desc: "經過+$2000" },
+            { id: 1, name: "長洲", type: "property", price: 800, rent: 160, color: C_BROWN },
+            { id: 2, name: "坪洲", type: "property", price: 800, rent: 160, color: C_BROWN },
+            { id: 3, name: "機會", type: "chance", desc: "市場動態" },
+            { id: 4, name: "南丫島", type: "property", price: 1000, rent: 200, color: C_LBLUE },
+            { id: 5, name: "天水圍", type: "property", price: 1000, rent: 200, color: C_LBLUE },
+            { id: 6, name: "元朗", type: "property", price: 1200, rent: 240, color: C_LBLUE },
+            { id: 7, name: "入息稅", type: "tax", desc: "支付 $500" },
+            { id: 8, name: "屯門", type: "property", price: 1200, rent: 240, color: C_PINK },
+            { id: 9, name: "粉嶺", type: "property", price: 1400, rent: 280, color: C_PINK },
+            { id: 10, name: "大埔", type: "property", price: 1400, rent: 280, color: C_PINK },
+            { id: 11, name: "監獄", type: "rest", desc: "探訪區" },
+            { id: 12, name: "沙田", type: "property", price: 1600, rent: 320, color: C_ORANGE },
+            { id: 13, name: "馬鞍山", type: "property", price: 1600, rent: 320, color: C_ORANGE },
+            { id: 14, name: "西貢", type: "property", price: 1800, rent: 360, color: C_ORANGE },
+            { id: 15, name: "政策", type: "destiny", desc: "法規改變" },
+            { id: 16, name: "將軍澳", type: "property", price: 1800, rent: 360, color: C_RED },
+            { id: 17, name: "葵涌", type: "property", price: 2000, rent: 400, color: C_RED },
+            { id: 18, name: "荃灣", type: "property", price: 2000, rent: 400, color: C_RED },
+            { id: 19, name: "深水埗", type: "property", price: 2200, rent: 440, color: C_YELLOW },
+            { id: 20, name: "長沙灣", type: "property", price: 2200, rent: 440, color: C_YELLOW },
+            { id: 21, name: "泊車", type: "rest", desc: "免費休息" },
+            { id: 22, name: "黃大仙", type: "property", price: 2400, rent: 480, color: C_YELLOW },
+            { id: 23, name: "鑽石山", type: "property", price: 2400, rent: 480, color: C_GREEN },
+            { id: 24, name: "九龍灣", type: "property", price: 2600, rent: 520, color: C_GREEN },
+            { id: 25, name: "觀塘", type: "property", price: 2600, rent: 520, color: C_GREEN },
+            { id: 26, name: "機會", type: "chance", desc: "市場動態" },
+            { id: 27, name: "旺角", type: "property", price: 2800, rent: 560, color: C_PURPLE },
+            { id: 28, name: "油麻地", type: "property", price: 2800, rent: 560, color: C_PURPLE },
+            { id: 29, name: "佐敦", type: "property", price: 3000, rent: 600, color: C_PURPLE },
+            { id: 30, name: "利得稅", type: "tax", desc: "支付 $1000" },
+            { id: 31, name: "尖沙咀", type: "property", price: 3200, rent: 640, color: C_BLUE },
+            { id: 32, name: "機場", type: "rest", desc: "轉機區" },
+            { id: 33, name: "北角", type: "property", price: 3500, rent: 700, color: C_BLUE },
+            { id: 34, name: "鰂魚涌", type: "property", price: 3500, rent: 700, color: C_BLUE },
+            { id: 35, name: "太古", type: "property", price: 3800, rent: 760, color: C_DGREEN },
+            { id: 36, name: "銅鑼灣", type: "property", price: 4000, rent: 800, color: C_DGREEN },
+            { id: 37, name: "政策", type: "destiny", desc: "法規改變" },
+            { id: 38, name: "灣仔", type: "property", price: 4200, rent: 840, color: C_DGREEN },
+            { id: 39, name: "金鐘", type: "property", price: 4500, rent: 900, color: C_DBLUE },
+            { id: 40, name: "中環", type: "property", price: 5000, rent: 1000, color: C_DBLUE },
+            { id: 41, name: "山頂", type: "property", price: 6000, rent: 1200, color: C_DBLUE }
+        ];
 
-            recognition.onstart = () => {
-                isRecording = true;
-                document.getElementById('voiceBtn').classList.add('recording');
-                document.getElementById('quickText').placeholder = "請講話...";
-            };
+        const BAFS_QUESTIONS = [
+            { q: "會計等式 (Accounting Equation) 是什麼？", options: ["資產 = 負債 + 資本", "資產 = 負債 - 資本", "資本 = 資產 + 負債"], ans: 0 },
+            { q: "以下哪項屬於企業的『流動資產 (Current Asset)』？", options: ["辦公室建築物", "存貨及銀行存款", "五年期的銀行貸款"], ans: 1 },
+            { q: "市場營銷組合 (Marketing Mix) 的 4P 不包括以下哪項？", options: ["產品 (Product)", "利潤 (Profit)", "價格 (Price)"], ans: 1 },
+            { q: "『私人有限公司』的股東人數上限是多少？", options: ["20人", "50人", "沒有上限"], ans: 1 },
+            { q: "進行 SWOT 分析時，'T' 代表什麼？", options: ["團隊 (Team)", "時間 (Time)", "威脅 (Threats)"], ans: 2 }
+        ];
 
-            recognition.onresult = (event) => {
-                const text = event.results[0][0].transcript;
-                document.getElementById('quickText').value += text;
-            };
+        const CHANCE_CARDS = [
+            { msg: "經濟繁榮，政府派發消費券，獲得 $500！", amt: 500 },
+            { msg: "通貨膨脹加劇，原材料成本上升，支付 $300。", amt: -300 },
+            { msg: "公司成功上市 (IPO)，籌集資金 $1000！", amt: 1000 },
+            { msg: "會計計錯數，被會計師樓罰款 $400。", amt: -400 }
+        ];
 
-            recognition.onend = () => {
-                isRecording = false;
-                document.getElementById('voiceBtn').classList.remove('recording');
-                document.getElementById('quickText').placeholder = "點擊右上方麥克風講話...";
-            };
+        // ==========================================
+        // 2. Firebase 初始化
+        // ==========================================
+        let db, auth, currentUser, currentRoomId;
+        let localPlayerName = "";
+        let roomState = null; 
+        let unsubscribeRoom = null;
 
-            recognition.onerror = (event) => {
-                console.error("語音辨識出錯", event.error);
-                isRecording = false;
-                document.getElementById('voiceBtn').classList.remove('recording');
-            };
-        }
-
-        function toggleVoice() {
-            if (!recognition) return alert("您的瀏覽器不支援語音辨識");
-            if (isRecording) {
-                recognition.stop();
-            } else {
-                recognition.start();
-            }
-        }
-
-        document.addEventListener('DOMContentLoaded', () => {
-            document.getElementById('apiKey').value = apiKey;
-            fetchRates();
-            renderExpenses();
-        });
-
-        async function fetchRates() {
+        const initFirebase = async () => {
             try {
-                const res = await fetch('https://open.er-api.com/v6/latest/HKD');
-                const data = await res.json();
-                if (data && data.rates) {
-                    for (let curr in rates) {
-                        if (data.rates[curr]) rates[curr] = parseFloat((1 / data.rates[curr]).toFixed(5));
-                    }
-                    updateRateUI();
+                const firebaseConfig = {
+                    apiKey: "AIzaSyAyJVNfB6rjKujrNYkfzmnYfkBmRYugQ2Q",
+                    authDomain: "monopoly-e8b2e.firebaseapp.com",
+                    databaseURL: "https://monopoly-e8b2e-default-rtdb.asia-southeast1.firebasedatabase.app",
+                    projectId: "monopoly-e8b2e",
+                    storageBucket: "monopoly-e8b2e.firebasestorage.app",
+                    messagingSenderId: "207454432463",
+                    appId: "1:207454432463:web:ea13b65833fc723ab2dbba"
+                };
+                
+                const app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getDatabase(app);
+                
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
                 }
-            } catch (e) { updateRateUI(); }
-        }
 
-        function updateRateUI() {
-            const info = document.getElementById('exchangeRateInfo');
-            if (info) info.innerHTML = Object.keys(rates).map(k => `<span>${k}: ${rates[k]}</span>`).join('');
-        }
-
-        function switchTab(tabName) {
-            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-            document.getElementById(`tab-${tabName}`).classList.add('active');
-            document.querySelectorAll('.nav-item').forEach(el => {
-                el.classList.remove('text-blue-600'); el.classList.add('text-slate-400');
-            });
-            document.getElementById(`nav-${tabName}`).classList.add('text-blue-600');
-            document.getElementById(`nav-${tabName}`).classList.remove('text-slate-400');
-            renderExpenses();
-            window.scrollTo(0, 0);
-        }
-
-        function saveConfig() {
-            apiKey = document.getElementById('apiKey').value;
-            localStorage.setItem('zhipu_api_key', apiKey);
-            alert('設定已儲存！');
-        }
-
-        const AI_PROMPT = "分析內容，提取以下 JSON：{amount:數字, merchant:餐廳或商店名, currency:貨幣代碼, category:食|衣|住|行|育|樂|其他, date:YYYY-MM-DD, note:備註}。";
-
-        async function handleImageUpload(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            document.getElementById('aiStatus').classList.remove('hidden');
-            const reader = new FileReader();
-            reader.onload = async (e) => {
-                const base64 = e.target.result.split(',')[1];
-                await callAI("glm-4v-flash", [
-                    { type: "text", text: AI_PROMPT },
-                    { type: "image_url", image_url: { url: `data:image/jpeg;base64,${base64}` } }
-                ]);
-            };
-            reader.readAsDataURL(file);
-        }
-
-        async function handleTextAI() {
-            const text = document.getElementById('quickText').value;
-            if (!text) return alert("請輸入或語音錄入文字");
-            document.getElementById('aiStatus').classList.remove('hidden');
-            await callAI("glm-4-flash", [{ type: "text", text: AI_PROMPT + " 內容如下：" + text }]);
-            document.getElementById('quickText').value = "";
-        }
-
-        async function callAI(model, content) {
-            const url = "https://open.bigmodel.cn/api/paas/v4/chat/completions";
-            try {
-                const response = await fetch(url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-                    body: JSON.stringify({ model, messages: [{ role: "user", content }], response_format: { type: "json_object" } })
+                onAuthStateChanged(auth, (user) => {
+                    if (user) currentUser = user;
                 });
-                const data = await response.json();
-                const res = JSON.parse(data.choices[0].message.content);
-                
-                const rawAmount = String(res.amount).replace(/[^\d.]/g, '');
-                const cleanAmount = parseFloat(rawAmount) || 0;
-                
-                const currency = (res.currency || "HKD").toUpperCase();
-                const rate = rates[currency] || 1;
-                const hkdAmount = Math.round(cleanAmount * rate * 100) / 100;
-
-                addExpenseRecord(hkdAmount, res.category, res.merchant || res.note || "未知商戶", res.date || new Date().toISOString().split('T')[0], {
-                    originalAmount: cleanAmount,
-                    originalCurrency: currency
-                });
-                alert(`已記錄：${res.merchant || ""} HKD ${hkdAmount}`);
-            } catch (e) {
-                console.error(e);
-                alert("AI 辨識發生錯誤");
-            } finally {
-                document.getElementById('aiStatus').classList.add('hidden');
+            } catch (err) {
+                console.error("Firebase 初始化失敗:", err);
+                showModal("系統錯誤", "無法連接至伺服器，請重試。");
             }
-        }
+        };
 
-        function addExpenseManually() {
-            const merchant = document.getElementById('manualMerchant').value;
-            const amount = parseFloat(document.getElementById('manualAmount').value) || 0;
-            const currency = document.getElementById('manualCurrency').value;
-            const category = document.getElementById('manualCategory').value;
-            if (amount <= 0) return alert('請輸入金額');
+        const getAppId = () => typeof __app_id !== 'undefined' ? __app_id : 'bafs-monopoly';
+        const getRoomsPath = () => `artifacts/${getAppId()}/public/data/rooms`;
+        const getRoomRef = (roomId) => ref(db, `${getRoomsPath()}/${roomId}`);
 
-            const rate = rates[currency] || 1;
-            const hkdAmount = Math.round(amount * rate * 100) / 100;
-
-            addExpenseRecord(hkdAmount, category, merchant || "手動新增", new Date().toISOString().split('T')[0], {
-                originalAmount: amount,
-                originalCurrency: currency
+        // ==========================================
+        // 3. UI 與動態市場價格計算工具
+        // ==========================================
+        const showView = (viewId) => {
+            ['view-login', 'view-lobby', 'view-waiting', 'view-game'].forEach(id => {
+                document.getElementById(id).classList.add('hidden');
             });
-            document.getElementById('manualMerchant').value = '';
-            document.getElementById('manualAmount').value = '';
-        }
+            document.getElementById(viewId).classList.remove('hidden');
+        };
 
-        function addExpenseRecord(amount, category, note, date, extra = null) {
-            expenses.unshift({ id: Date.now(), amount, category, note, date, extra });
-            localStorage.setItem('expenses', JSON.stringify(expenses));
-            renderExpenses();
-        }
+        const showModal = (title, htmlBody, buttons = [{ text: '確定', style: 'bg-slate-800 hover:bg-slate-700', resolveWith: true }]) => {
+            return new Promise((resolve) => {
+                const modal = document.getElementById('global-modal');
+                document.getElementById('modal-header').innerHTML = title;
+                document.getElementById('modal-body').innerHTML = htmlBody;
+                
+                const footer = document.getElementById('modal-footer');
+                footer.innerHTML = '';
+                
+                buttons.forEach(btn => {
+                    const buttonEl = document.createElement('button');
+                    buttonEl.className = `px-6 py-2 text-white font-bold rounded-xl transition-transform transform active:scale-95 shadow-md ${btn.style}`;
+                    buttonEl.innerText = btn.text;
+                    buttonEl.onclick = () => {
+                        modal.classList.add('hidden');
+                        resolve(btn.resolveWith);
+                    };
+                    footer.appendChild(buttonEl);
+                });
+                
+                modal.classList.remove('hidden');
+            });
+        };
 
-        function deleteExpense(id) {
-            expenses = expenses.filter(e => e.id !== id);
-            localStorage.setItem('expenses', JSON.stringify(expenses));
-            renderExpenses();
-        }
+        // 動態市值計算 Helper
+        const getCurrentPrice = (tile) => {
+            if (roomState && roomState.marketPrices && roomState.marketPrices[tile.id]) {
+                return roomState.marketPrices[tile.id];
+            }
+            return tile.price;
+        };
 
-        function renderExpenses() {
-            const list = document.getElementById('expenseList');
-            const recentList = document.getElementById('recentList');
-            const totalEl = document.getElementById('totalAmount');
-            const todayEl = document.getElementById('todayAmount');
-            
-            let total = 0, todayTotal = 0;
-            const todayStr = new Date().toISOString().split('T')[0];
+        const getCurrentRent = (tile, propLevel) => {
+            const currentPrice = getCurrentPrice(tile);
+            const ratio = currentPrice / tile.price;
+            let rent = Math.floor(tile.rent * ratio);
+            if (propLevel > 1) rent = rent * Math.pow(2, propLevel - 1);
+            return rent;
+        };
 
-            const html = (items) => {
-                if (items.length === 0) return `<div class="p-10 text-center text-slate-400 text-sm">尚無記錄</div>`;
-                return items.map(exp => {
-                    const icon = getCategoryIcon(exp.category);
-                    const originalInfo = exp.extra && exp.extra.originalCurrency !== 'HKD' 
-                        ? `<span class="currency-tag">${exp.extra.originalAmount} ${exp.extra.originalCurrency}</span>` 
-                        : '';
-                    return `
-                        <div class="expense-item p-4 flex items-center justify-between">
-                            <div class="flex items-center gap-3">
-                                <div class="w-10 h-10 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-500 border border-slate-100">
-                                    <i class="${icon}"></i>
-                                </div>
-                                <div>
-                                    <h4 class="font-bold text-slate-800 text-sm">${exp.note} ${originalInfo}</h4>
-                                    <p class="text-[10px] text-slate-400 uppercase tracking-tighter">${exp.date} • ${exp.category}</p>
-                                </div>
+        const getPropData = (tileId) => {
+            const data = roomState.properties[tileId];
+            if (!data) return null;
+            return typeof data === 'string' ? { owner: data, level: 1 } : data;
+        };
+
+        // NEW: 顯示特定玩家的所有資產 (總市值)
+        window.showPlayerAssets = (uid) => {
+            if (!roomState) return;
+            const player = roomState.players.find(p => p.uid === uid);
+            if (!player) return;
+
+            let myProps = Object.keys(roomState.properties).filter(k => {
+                let pData = getPropData(k);
+                return pData && pData.owner === uid;
+            });
+
+            let html = `<div class="max-h-[60vh] overflow-y-auto space-y-3 pr-2">`;
+            let totalVal = player.money;
+
+            html += `
+                <div class="bg-slate-100 p-3 rounded-lg border border-slate-200 flex justify-between items-center shadow-sm">
+                    <span class="font-bold text-slate-600">💵 現金 (Cash)</span>
+                    <span class="font-black ${player.money < 0 ? 'text-red-600' : 'text-emerald-600'}">$${player.money}</span>
+                </div>
+            `;
+
+            if (myProps.length === 0) {
+                html += `<div class="text-center text-slate-500 py-4 text-sm font-bold bg-slate-50 rounded-xl border-2 border-dashed border-slate-200">暫未持有任何物業資產</div>`;
+            } else {
+                myProps.forEach(tileId => {
+                    const tile = MAP_TILES.find(t => t.id === parseInt(tileId));
+                    const currentPrice = getCurrentPrice(tile);
+                    const prop = getPropData(tileId);
+                    totalVal += currentPrice;
+                    
+                    html += `
+                        <div class="border-2 p-3 rounded-xl bg-white shadow-sm flex flex-col gap-1 hover:bg-slate-50 transition" style="border-color: ${tile.color}">
+                            <div class="flex justify-between items-center font-black text-base text-slate-800">
+                                <span>${tile.name} <span class="text-xs text-blue-600 ml-1">${'⭐'.repeat(prop.level)}</span></span>
+                                <span class="text-blue-700">市值 $${currentPrice}</span>
                             </div>
-                            <div class="text-right">
-                                <p class="font-bold text-slate-900">$${exp.amount.toLocaleString(undefined, {minimumFractionDigits: 1})}</p>
-                                <button onclick="deleteExpense(${exp.id})" class="text-[10px] text-red-300 hover:text-red-500">刪除</button>
+                            <div class="text-xs text-slate-500 flex justify-between font-bold">
+                                <span>收購價: $${tile.price}</span>
+                                <span class="text-red-500">收取租金: $${getCurrentRent(tile, prop.level)}</span>
                             </div>
                         </div>
                     `;
-                }).join('');
-            };
+                });
+            }
 
-            expenses.forEach(e => {
-                total += e.amount;
-                if(e.date === todayStr) todayTotal += e.amount;
+            html += `
+                <div class="mt-4 pt-3 border-t-2 border-slate-200 flex justify-between items-center text-lg">
+                    <span class="font-black text-slate-800">📊 總資產淨值 (Net Worth)</span>
+                    <span class="font-black text-blue-700">$${totalVal}</span>
+                </div>
+            `;
+            html += `</div>`;
+
+            showModal(`💼 ${player.name} 的投資組合`, html, [{text: '關閉', style: 'bg-slate-600 hover:bg-slate-500'}]);
+        };
+
+        const showPropertyCard = (tile) => {
+            if (tile.type !== 'property') return;
+            
+            let ownerName = "🏦 銀行 (未被收購)";
+            let ownerColor = "#ccc";
+            let level = 0;
+            
+            const prop = getPropData(tile.id);
+            if (prop) {
+                const p = roomState.players.find(p => p.uid === prop.owner);
+                if (p) {
+                    ownerName = `👤 ${p.name}`;
+                    ownerColor = p.color;
+                    level = prop.level;
+                }
+            }
+
+            const currentPrice = getCurrentPrice(tile);
+            const currentRent = getCurrentRent(tile, level > 0 ? level : 1);
+            let levelStars = level > 0 ? Array(level).fill('⭐').join('') : '無';
+
+            let priceTrend = "";
+            if (currentPrice > tile.price) priceTrend = `<span class="trend-up">▲ (+${Math.round((currentPrice/tile.price-1)*100)}%)</span>`;
+            else if (currentPrice < tile.price) priceTrend = `<span class="trend-down">▼ (${Math.round((currentPrice/tile.price-1)*100)}%)</span>`;
+
+            const html = `
+                <div class="border-4 rounded-xl overflow-hidden shadow-lg" style="border-color: ${tile.color};">
+                    <div class="py-4 text-center font-black text-white text-2xl tracking-widest relative" style="background-color: ${tile.color};">
+                        ${tile.name}
+                    </div>
+                    <div class="p-6 bg-[#fbf8ef] space-y-4 text-slate-800">
+                        <div class="flex justify-between items-center border-b border-slate-300 pb-2">
+                            <span class="font-bold">最新市值 (Price)</span>
+                            <div class="text-right">
+                                <span class="text-xl font-black">$${currentPrice}</span><br>
+                                <span class="text-xs">${priceTrend || '平穩'}</span>
+                            </div>
+                        </div>
+                        <div class="flex justify-between items-center border-b border-slate-300 pb-2">
+                            <span class="font-bold text-blue-600">建築等級 (Level)</span>
+                            <span class="text-lg font-black text-blue-600">${levelStars}</span>
+                        </div>
+                        <div class="flex justify-between items-center border-b border-slate-300 pb-2">
+                            <span class="font-bold text-red-600">現時租金 (Rent)</span>
+                            <span class="text-xl font-black text-red-600">$${currentRent}</span>
+                        </div>
+                        <div class="pt-4 text-center">
+                            <p class="text-sm text-slate-500 mb-1">現時業權擁有者</p>
+                            <div class="inline-block px-4 py-2 rounded-full font-bold text-white shadow-sm" style="background-color: ${ownerColor}">
+                                ${ownerName}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            showModal(`<span class="flex items-center gap-2">📄 地契資料</span>`, html, [{text: '關閉', style: 'bg-slate-500 hover:bg-slate-600'}]);
+        };
+
+        // ==========================================
+        // 4. 連線邏輯
+        // ==========================================
+        document.getElementById('btn-login').onclick = () => {
+            const name = document.getElementById('input-name').value.trim();
+            if (!name) return showModal("錯誤", "請輸入你的大名！");
+            localPlayerName = name;
+            document.getElementById('user-info').classList.remove('hidden');
+            document.getElementById('display-name').innerText = name;
+            showView('view-lobby');
+        };
+
+        document.getElementById('btn-create-room').onclick = async () => {
+            if (!currentUser) return;
+            const code = Math.floor(1000 + Math.random() * 9000).toString();
+            const newRoomRef = push(ref(db, getRoomsPath()));
+            
+            await set(newRoomRef, {
+                roomCode: code, state: 'waiting', hostId: currentUser.uid, turnIndex: 0,
+                players: [{ uid: currentUser.uid, name: localPlayerName, money: 15000, pos: 0, color: PLAYER_STYLES[0].color, icon: PLAYER_STYLES[0].icon, isBankrupt: false }],
+                properties: {}, logs: ["遊戲房間已創建。"], marketPrices: {}
+            });
+            currentRoomId = newRoomRef.key;
+            listenToRoom(currentRoomId);
+        };
+
+        document.getElementById('btn-join-room').onclick = async () => {
+            if (!currentUser) return;
+            const code = document.getElementById('input-room-code').value.trim();
+            const msgEl = document.getElementById('lobby-msg');
+            if (code.length !== 4) { msgEl.innerText = "請輸入 4 位數代碼"; msgEl.classList.remove('hidden'); return; }
+            msgEl.classList.add('hidden');
+            
+            const snapshot = await get(ref(db, getRoomsPath()));
+            let targetRoomId = null, targetRoomData = null;
+
+            if (snapshot.exists()) {
+                const rooms = snapshot.val();
+                for (const key in rooms) {
+                    if (rooms[key].roomCode === code && rooms[key].state === 'waiting') {
+                        targetRoomId = key; targetRoomData = rooms[key]; break;
+                    }
+                }
+            }
+
+            if (!targetRoomId) { msgEl.innerText = "找不到房間"; msgEl.classList.remove('hidden'); return; }
+            if (!targetRoomData.players) targetRoomData.players = [];
+            if (targetRoomData.players.length >= 4) { msgEl.innerText = "房間已滿"; msgEl.classList.remove('hidden'); return; }
+
+            if (!targetRoomData.players.find(p => p.uid === currentUser.uid)) {
+                const pIndex = targetRoomData.players.length;
+                targetRoomData.players.push({
+                    uid: currentUser.uid, name: localPlayerName, money: 15000, pos: 0,
+                    color: PLAYER_STYLES[pIndex % 4].color, icon: PLAYER_STYLES[pIndex % 4].icon, isBankrupt: false
+                });
+                await update(getRoomRef(targetRoomId), {
+                    players: targetRoomData.players, logs: [...(targetRoomData.logs||[]), `${localPlayerName} 加入了房間！`]
+                });
+            }
+            currentRoomId = targetRoomId; listenToRoom(currentRoomId);
+        };
+
+        const listenToRoom = (roomId) => {
+            if (unsubscribeRoom) unsubscribeRoom();
+            unsubscribeRoom = onValue(getRoomRef(roomId), (snapshot) => {
+                if (!snapshot.exists()) return;
+                roomState = snapshot.val();
+                if (!roomState.properties) roomState.properties = {};
+                if (!roomState.logs) roomState.logs = [];
+                if (!roomState.players) roomState.players = [];
+                if (!roomState.marketPrices) roomState.marketPrices = {};
+                updateUI();
+            });
+        };
+
+        document.getElementById('btn-start-game').onclick = async () => {
+            if (roomState && roomState.hostId === currentUser.uid) {
+                await update(getRoomRef(currentRoomId), { state: 'playing', logs: [...roomState.logs, "市場開盤！財務年度展開。"] });
+            }
+        };
+
+        // ==========================================
+        // 5. 遊戲渲染
+        // ==========================================
+        const updateUI = () => {
+            if (!roomState) return;
+
+            if (roomState.state === 'waiting') {
+                showView('view-waiting');
+                document.getElementById('display-room-code').innerText = roomState.roomCode;
+                document.getElementById('player-count').innerText = roomState.players.length;
+                
+                const listEl = document.getElementById('waiting-player-list');
+                listEl.innerHTML = '';
+                roomState.players.forEach(p => {
+                    listEl.innerHTML += `
+                        <li class="flex items-center gap-3 text-lg font-bold bg-slate-50 p-3 rounded-xl shadow-sm border border-slate-100">
+                            <span class="w-10 h-10 rounded-full flex items-center justify-center text-white border-2 border-slate-200 shadow-inner text-xl" style="background-color:${p.color}">
+                                ${p.icon}
+                            </span> 
+                            <span>${p.name} ${p.uid === roomState.hostId ? '<span class="bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded ml-2">房主</span>' : ''}</span>
+                        </li>`;
+                });
+
+                if (roomState.hostId === currentUser.uid) document.getElementById('btn-start-game').classList.remove('hidden');
+            } else if (roomState.state === 'playing') {
+                showView('view-game');
+                document.getElementById('game-room-code').innerText = roomState.roomCode;
+                renderBoard();
+                renderPlayers();
+                renderLogs();
+                checkTurnState();
+                handleTradeOfferObserver();   // 處理破產變賣報價
+                handleBuyoutOfferObserver(); // 處理踩點惡意收購要約
+            }
+        };
+
+        const getTileGridPosition = (id) => {
+            if (id >= 0 && id <= 11) return { col: id + 1, row: 1 };
+            if (id >= 12 && id <= 20) return { col: 12, row: id - 11 + 1 };
+            if (id >= 21 && id <= 32) return { col: 12 - (id - 21), row: 11 };
+            return { col: 1, row: 11 - (id - 32) };
+        };
+
+        const renderBoard = () => {
+            const boardEl = document.getElementById('board');
+            Array.from(boardEl.children).forEach(c => { if (!c.classList.contains('board-center')) c.remove(); });
+
+            MAP_TILES.forEach(tile => {
+                const div = document.createElement('div');
+                div.className = `tile tile-${tile.type}`;
+                const pos = getTileGridPosition(tile.id);
+                div.style.gridColumn = pos.col; div.style.gridRow = pos.row;
+                div.onclick = () => showPropertyCard(tile);
+                
+                let contentHTML = '';
+                if (tile.type === 'property') {
+                    const cPrice = getCurrentPrice(tile);
+                    let trendIcon = '';
+                    if (cPrice > tile.price) trendIcon = `<span class="text-emerald-500 text-[8px] ml-1">▲</span>`;
+                    else if (cPrice < tile.price) trendIcon = `<span class="text-red-500 text-[8px] ml-1">▼</span>`;
+
+                    contentHTML += `<div class="tile-color-header" style="background-color: ${tile.color}"></div>`;
+                    contentHTML += `<div class="tile-body"><div class="tile-name mt-1">${tile.name}</div><div class="tile-price mb-1">$${cPrice}${trendIcon}</div></div>`;
+                } else {
+                    contentHTML += `<div class="tile-body justify-center"><div class="tile-name">${tile.name}</div>`;
+                    if (tile.desc) contentHTML += `<div class="tile-desc">${tile.desc}</div>`;
+                    contentHTML += `</div>`;
+                }
+
+                if (roomState.properties[tile.id]) {
+                    const prop = getPropData(tile.id);
+                    const p = roomState.players.find(p => p.uid === prop.owner);
+                    if (p) {
+                        contentHTML += `<div class="owner-ring" style="border-color: ${p.color}"></div>`;
+                        let starsHtml = Array(prop.level).fill('⭐').join('');
+                        contentHTML += `<div class="absolute top-1 right-1 text-[7px] md:text-[9px] bg-white/90 rounded px-[2px] shadow-sm tracking-tighter z-10">${starsHtml}</div>`;
+                    }
+                }
+
+                let tokensHTML = '<div class="token-container">';
+                roomState.players.forEach(p => {
+                    if (!p.isBankrupt && p.pos === tile.id) {
+                        tokensHTML += `<div class="token token-animate" style="border-color: ${p.color}; color: ${p.color}; background: white;">${p.icon}</div>`;
+                    }
+                });
+                tokensHTML += '</div>';
+
+                div.innerHTML = contentHTML + tokensHTML;
+                boardEl.appendChild(div);
+            });
+        };
+
+        const renderPlayers = () => {
+            const container = document.getElementById('in-game-players');
+            container.innerHTML = '';
+            roomState.players.forEach((p, idx) => {
+                const isCurrentTurn = (roomState.turnIndex % roomState.players.length) === idx;
+                const turnStyle = isCurrentTurn ? 'ring-2 ring-blue-500 bg-white shadow-md transform scale-[1.02]' : 'border border-slate-200 bg-white/60 hover:bg-slate-100 cursor-pointer';
+                const bankruptStyle = p.isBankrupt ? 'opacity-40 grayscale pointer-events-none' : '';
+                
+                // 計算總資產
+                let propertyValue = 0;
+                let propCount = 0;
+                Object.keys(roomState.properties).forEach(k => {
+                    let pData = getPropData(k);
+                    if (pData && pData.owner === p.uid) {
+                        propCount++;
+                        propertyValue += getCurrentPrice(MAP_TILES.find(t => t.id === parseInt(k)));
+                    }
+                });
+                const netWorth = p.money + propertyValue;
+
+                container.innerHTML += `
+                    <div class="rounded-xl p-3 flex items-center gap-3 ${turnStyle} ${bankruptStyle} transition-all duration-300" onclick="window.showPlayerAssets('${p.uid}')">
+                        <div class="w-12 h-12 rounded-full shadow-inner border-4 flex items-center justify-center text-2xl bg-white flex-shrink-0" style="border-color: ${p.color}">
+                            ${p.icon}
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="font-black text-slate-800 truncate text-base">${p.name} ${p.uid === currentUser.uid ? '<span class="text-[0.65rem] font-bold text-white bg-blue-500 px-1 rounded align-middle ml-1">YOU</span>' : ''}</div>
+                            <div class="text-sm ${p.money<0 ? 'text-red-600' : 'text-emerald-600'} font-black tracking-wide flex justify-between pr-2">
+                                <span>現金: $${p.money}</span>
+                            </div>
+                            <div class="text-[0.7rem] text-blue-600 font-bold tracking-wide">
+                                總資產: $${netWorth}
+                            </div>
+                        </div>
+                        <div class="text-xs text-slate-500 text-right font-bold bg-slate-200 px-2 py-1 rounded-lg">
+                            🏠 ${propCount}
+                        </div>
+                    </div>`;
+            });
+        };
+
+        const renderLogs = () => {
+            const container = document.getElementById('game-logs');
+            container.innerHTML = roomState.logs.slice(-20).reverse().map(log => 
+                `<div class="border-b border-slate-100 pb-2 mb-1 pl-2 border-l-2 hover:border-blue-400 transition-colors">${log}</div>`
+            ).join('');
+        };
+
+        const checkTurnState = () => {
+            const activePlayer = roomState.players[roomState.turnIndex % roomState.players.length];
+            const indicator = document.getElementById('turn-indicator');
+            const btnRoll = document.getElementById('btn-roll');
+
+            if (activePlayer.isBankrupt) {
+                if (roomState.hostId === currentUser.uid) {
+                    processEndOfTurnAndUpdate(activePlayer, roomState.turnIndex % roomState.players.length, [`⚠️ ${activePlayer.name} 已破產，自動跳過。`]);
+                }
+                return;
+            }
+
+            if (activePlayer.uid === currentUser.uid) {
+                if (activePlayer.money < 0) {
+                    if (roomState.tradeOffer) {
+                        indicator.innerText = "⏳ 等待買家回應報價...";
+                        indicator.className = "font-bold text-sm md:text-base text-blue-600 bg-blue-100 px-6 py-2 rounded-full animate-pulse";
+                    } else {
+                        indicator.innerText = "⚠️ 破產危機！請變賣資產";
+                        indicator.className = "font-black text-lg md:text-xl text-white bg-red-600 px-6 py-2 rounded-full shadow-lg animate-bounce";
+                        showLiquidationModal(activePlayer);
+                    }
+                    btnRoll.classList.add('hidden');
+                } else if (roomState.buyoutOffer && roomState.buyoutOffer.from === currentUser.uid && roomState.buyoutOffer.status === 'pending') {
+                    // 我正在發起收購，等待對方回應中
+                    indicator.innerText = "⏳ 等待業主回覆要約...";
+                    indicator.className = "font-bold text-sm md:text-base text-blue-600 bg-blue-100 px-6 py-2 rounded-full animate-pulse";
+                    btnRoll.classList.add('hidden');
+                } else {
+                    indicator.innerText = "你的回合！請擲骰子";
+                    indicator.className = "font-black text-lg md:text-xl text-white bg-emerald-500 px-6 py-2 rounded-full shadow-lg animate-bounce";
+                    btnRoll.classList.remove('hidden');
+                }
+            } else {
+                indicator.innerText = `等待 ${activePlayer.name} 行動...`;
+                indicator.className = "font-bold text-sm md:text-base text-slate-500 bg-slate-200 px-6 py-2 rounded-full animate-pulse";
+                btnRoll.classList.add('hidden');
+            }
+        };
+
+        // ==========================================
+        // 6. 市場機制、變賣與惡意收購要約
+        // ==========================================
+        
+        // 計算市場升降
+        const applyMarketFluctuation = (currentTurnIndex, currentLogs, currentMarketPrices) => {
+            if (currentTurnIndex > 0 && currentTurnIndex % roomState.players.length === 0) {
+                let newMarketPrices = { ...currentMarketPrices };
+                let fluctuated = false;
+                MAP_TILES.forEach(t => {
+                    if (t.type === 'property' && Math.random() < 0.4) { 
+                        const basePrice = t.price;
+                        const current = newMarketPrices[t.id] || basePrice;
+                        const change = (Math.random() * 0.7) - 0.2; 
+                        const newPrice = Math.max(Math.floor(basePrice * 0.4), Math.floor(current * (1 + change)));
+                        newMarketPrices[t.id] = Math.round(newPrice / 10) * 10;
+                        fluctuated = true;
+                    }
+                });
+                if (fluctuated) {
+                    currentLogs.push("📈 【市場動態】進入新財務年度，部分地產市值發生了隨機升降！");
+                }
+                return { newMarketPrices, fluctuated };
+            }
+            return { newMarketPrices: currentMarketPrices, fluctuated: false };
+        };
+
+        const processEndOfTurnAndUpdate = async (playerData, pIndex, logs) => {
+            let players = [...roomState.players];
+            players[pIndex] = playerData;
+            let nextTurnIndex = roomState.turnIndex + 1;
+            
+            let mktRes = applyMarketFluctuation(nextTurnIndex, logs, roomState.marketPrices || {});
+            
+            let updates = { players, logs, turnIndex: nextTurnIndex };
+            if (mktRes.fluctuated) updates.marketPrices = mktRes.newMarketPrices;
+            
+            await update(getRoomRef(currentRoomId), updates);
+        };
+
+        // 當需要結束回合時的統一檢查接口
+        const checkAndFinalizeTurn = async (playerData, pIndex, logs) => {
+            if (playerData.money >= 0) {
+                await processEndOfTurnAndUpdate(playerData, pIndex, logs);
+            } else {
+                const myProps = Object.keys(roomState.properties).filter(k => {
+                    const p = getPropData(k); return p && p.owner === playerData.uid;
+                });
+                
+                if (myProps.length === 0) {
+                    playerData.isBankrupt = true;
+                    logs.push(`💀 ${playerData.name} 資不抵債，正式破產！`);
+                    await processEndOfTurnAndUpdate(playerData, pIndex, logs);
+                } else {
+                    let players = [...roomState.players];
+                    players[pIndex] = playerData;
+                    await update(getRoomRef(currentRoomId), { players, logs });
+                }
+            }
+        };
+
+        // --- 破產清盤邏輯 ---
+        const showLiquidationModal = (player) => {
+            if (window.isLiquidating) return;
+            window.isLiquidating = true;
+
+            const myProps = Object.keys(roomState.properties).filter(k => {
+                const p = getPropData(k); return p && p.owner === player.uid;
             });
 
-            totalEl.innerText = total.toLocaleString(undefined, {maximumFractionDigits: 1});
-            todayEl.innerText = todayTotal.toLocaleString(undefined, {maximumFractionDigits: 1});
-            if (list) list.innerHTML = html(expenses);
-            if (recentList) recentList.innerHTML = html(expenses.slice(0, 4));
-        }
+            let html = `<div class="bg-red-50 text-red-600 font-bold p-3 rounded-lg mb-4 text-center border border-red-200 shadow-sm">
+                🚨 財務赤字！目前資金：$${player.money}<br><span class="text-sm">必須變賣資產直到資金為正數！</span>
+            </div>`;
+            html += `<div class="max-h-[50vh] overflow-y-auto space-y-3 pr-2">`;
+            
+            myProps.forEach(tileId => {
+                const tile = MAP_TILES.find(t => t.id === parseInt(tileId));
+                const currentPrice = getCurrentPrice(tile);
+                const bankPrice = Math.floor(currentPrice * 0.5);
+                html += `
+                    <div class="border-2 p-3 rounded-xl bg-white shadow-sm flex flex-col gap-2" style="border-color: ${tile.color}">
+                        <div class="flex justify-between items-center font-black text-lg">
+                            <span>${tile.name}</span>
+                            <span class="text-sm text-slate-500 font-bold">市值 $${currentPrice}</span>
+                        </div>
+                        <div class="flex gap-2 mt-1">
+                            <button class="flex-1 bg-slate-600 text-white text-sm py-2 rounded-lg shadow hover:bg-slate-500 font-bold transition-all" onclick="window.sellToBank(${tile.id}, ${bankPrice})">賣給銀行 ($${bankPrice})</button>
+                            <button class="flex-1 bg-blue-600 text-white text-sm py-2 rounded-lg shadow hover:bg-blue-500 font-bold transition-all" onclick="window.offerToPlayer(${tile.id}, ${currentPrice})">向玩家報價</button>
+                        </div>
+                    </div>
+                `;
+            });
+            html += `</div>`;
+            
+            window.sellToBank = async (tileId, price) => {
+                document.getElementById('global-modal').classList.add('hidden');
+                window.isLiquidating = false;
+                
+                let pIdx = roomState.turnIndex % roomState.players.length;
+                let players = [...roomState.players];
+                players[pIdx].money += price;
+                
+                let props = {...roomState.properties};
+                delete props[tileId]; 
+                
+                let tile = MAP_TILES.find(t => t.id === parseInt(tileId));
+                let logs = [...roomState.logs, `🏦 ${players[pIdx].name} 將【${tile.name}】賤賣給銀行，套現 $${price}。`];
+                
+                let stillHasProps = Object.keys(props).some(k => props[k].owner === player.uid);
+                if (players[pIdx].money < 0 && !stillHasProps) {
+                    players[pIdx].isBankrupt = true;
+                    logs.push(`💀 ${players[pIdx].name} 變賣所有資產後仍無法還清債務，正式破產！`);
+                    await update(getRoomRef(currentRoomId), { properties: props }); 
+                    await processEndOfTurnAndUpdate(players[pIdx], pIdx, logs);
+                } else if (players[pIdx].money >= 0) {
+                    logs.push(`✅ ${players[pIdx].name} 成功解除破產危機。`);
+                    await update(getRoomRef(currentRoomId), { properties: props });
+                    await processEndOfTurnAndUpdate(players[pIdx], pIdx, logs);
+                } else {
+                    await update(getRoomRef(currentRoomId), { players, properties: props, logs });
+                }
+            };
 
-        function getCategoryIcon(cat) {
-            const icons = { '食': 'fa-solid fa-burger', '衣': 'fa-solid fa-bag-shopping', '住': 'fa-solid fa-couch', '行': 'fa-solid fa-bus', '育': 'fa-solid fa-graduation-cap', '樂': 'fa-solid fa-ticket', '其他': 'fa-solid fa-tag' };
-            return icons[cat] || 'fa-solid fa-tag';
-        }
+            window.offerToPlayer = (tileId, currentPrice) => {
+                document.getElementById('global-modal').classList.add('hidden');
+                window.isLiquidating = false;
+                
+                let otherPlayers = roomState.players.filter(p => p.uid !== player.uid && !p.isBankrupt);
+                if (otherPlayers.length === 0) {
+                    alert("目前沒有其他活躍玩家可以報價！");
+                    showLiquidationModal(player); 
+                    return;
+                }
 
-        function clearData() { if(confirm('確定清除所有數據？')) { expenses = []; localStorage.setItem('expenses', '[]'); renderExpenses(); } }
+                let optHtml = `<select id="offer-target" class="w-full p-3 border-2 border-slate-200 rounded-xl mb-4 text-base font-bold text-slate-700 bg-white">`;
+                otherPlayers.forEach(p => {
+                    optHtml += `<option value="${p.uid}">${p.name} (持有資金: $${p.money})</option>`;
+                });
+                optHtml += `</select>`;
+                optHtml += `<input type="number" id="offer-price" value="${currentPrice}" class="w-full p-3 border-2 border-slate-200 rounded-xl mb-4 text-xl font-black text-center text-blue-600" placeholder="報價金額">`;
+
+                showModal("🤝 發起破產出售報價", optHtml, [
+                    {text: '送出報價', style: 'bg-emerald-600 hover:bg-emerald-500', resolveWith: 'send'},
+                    {text: '取消', style: 'bg-slate-400', resolveWith: 'cancel'}
+                ]).then(async (res) => {
+                    if (res === 'send') {
+                        const targetUid = document.getElementById('offer-target').value;
+                        const price = parseInt(document.getElementById('offer-price').value);
+                        if (price > 0) {
+                            await update(getRoomRef(currentRoomId), {
+                                tradeOffer: { from: player.uid, to: targetUid, tileId: tileId, price: price }
+                            });
+                        } else {
+                            alert("請輸入有效的報價金額！");
+                            showLiquidationModal(player);
+                        }
+                    } else {
+                        showLiquidationModal(player);
+                    }
+                });
+            };
+
+            showModal("⚠️ 破產危機", html, []).then(() => {
+                window.isLiquidating = false;
+            });
+        };
+
+        const handleTradeOfferObserver = () => {
+            if (roomState && roomState.tradeOffer && roomState.tradeOffer.to === currentUser.uid && !window.isNegotiating) {
+                window.isNegotiating = true;
+                const offer = roomState.tradeOffer;
+                const seller = roomState.players.find(p => p.uid === offer.from);
+                const tile = MAP_TILES.find(t => t.id === parseInt(offer.tileId));
+                
+                showModal("🤝 收到緊急拋售邀請", 
+                    `<div class="text-center space-y-3 my-2">
+                        <p class="text-lg"><b>${seller.name}</b> 因面臨財務危機</p>
+                        <p class="text-slate-600">向你報價出售地盤 <b>【${tile.name}】</b></p>
+                        <div class="bg-blue-50 py-3 rounded-xl border border-blue-100">
+                            <span class="text-sm text-slate-500 block">對方報價</span>
+                            <span class="text-3xl font-black text-blue-600">$${offer.price}</span>
+                        </div>
+                        <p class="text-xs text-slate-400">該地段最新市價為 $${getCurrentPrice(tile)}</p>
+                    </div>`, 
+                    [
+                        {text: '接受交易', style: 'bg-emerald-600 hover:bg-emerald-500', resolveWith: 'accept'},
+                        {text: '狠心拒絕', style: 'bg-red-500 hover:bg-red-600', resolveWith: 'reject'}
+                    ]
+                ).then(async (res) => {
+                    window.isNegotiating = false;
+                    
+                    let buyerIdx = roomState.players.findIndex(p => p.uid === currentUser.uid);
+                    let sellerIdx = roomState.players.findIndex(p => p.uid === seller.uid);
+                    let players = [...roomState.players];
+                    let logs = [...roomState.logs];
+
+                    if (res === 'accept') {
+                        if (players[buyerIdx].money >= offer.price) {
+                            players[buyerIdx].money -= offer.price;
+                            players[sellerIdx].money += parseInt(offer.price);
+                            
+                            let props = {...roomState.properties};
+                            let oldLevel = getPropData(tile.id).level || 1;
+                            props[tile.id] = { owner: currentUser.uid, level: oldLevel };
+                            
+                            logs.push(`🤝 【產權交易】${players[buyerIdx].name} 以 $${offer.price} 趁機收購了 ${seller.name} 的【${tile.name}】！`);
+                            
+                            let stillHasProps = Object.keys(props).some(k => props[k].owner === seller.uid);
+                            if (players[sellerIdx].money < 0 && !stillHasProps) {
+                                players[sellerIdx].isBankrupt = true;
+                                logs.push(`💀 ${players[sellerIdx].name} 變賣所有資產後仍破產！`);
+                                await update(getRoomRef(currentRoomId), { properties: props, tradeOffer: null });
+                                await processEndOfTurnAndUpdate(players[sellerIdx], sellerIdx, logs);
+                            } else if (players[sellerIdx].money >= 0) {
+                                logs.push(`✅ ${players[sellerIdx].name} 成功解除破產危機。`);
+                                await update(getRoomRef(currentRoomId), { properties: props, tradeOffer: null });
+                                await processEndOfTurnAndUpdate(players[sellerIdx], sellerIdx, logs);
+                            } else {
+                                await update(getRoomRef(currentRoomId), { players, properties: props, logs, tradeOffer: null });
+                            }
+                        } else {
+                            alert("你的資金不足，無法接受交易！");
+                            logs.push(`❌ 【交易取消】${players[buyerIdx].name} 資金不足，交易失敗。`);
+                            await update(getRoomRef(currentRoomId), { logs, tradeOffer: null });
+                        }
+                    } else {
+                        logs.push(`❌ 【交易拒絕】你拒絕了 ${seller.name} 的報價。`);
+                        await update(getRoomRef(currentRoomId), { logs, tradeOffer: null });
+                    }
+                });
+            }
+        };
+
+        // --- 惡意收購邏輯 (踩地後發動) ---
+        const handleBuyoutOfferObserver = () => {
+            if (roomState && roomState.buyoutOffer && roomState.buyoutOffer.status === 'pending' && roomState.buyoutOffer.to === currentUser.uid && !window.isNegotiatingBuyout) {
+                window.isNegotiatingBuyout = true;
+                const offer = roomState.buyoutOffer;
+                const buyer = roomState.players.find(p => p.uid === offer.from);
+                const tile = MAP_TILES.find(t => t.id === parseInt(offer.tileId));
+                
+                showModal("🤝 收到商業收購要約", 
+                    `<div class="text-center space-y-3 my-2">
+                        <p class="text-lg"><b>${buyer.name}</b> 踩中了你的地盤</p>
+                        <p class="text-slate-600">並希望向你收購 <b>【${tile.name}】</b></p>
+                        <div class="bg-blue-50 py-3 rounded-xl border border-blue-100">
+                            <span class="text-sm text-slate-500 block">對方出價</span>
+                            <span class="text-3xl font-black text-blue-600">$${offer.price}</span>
+                        </div>
+                        <p class="text-xs text-slate-400">該地段最新市價為 $${getCurrentPrice(tile)}</p>
+                    </div>`, 
+                    [
+                        {text: '見錢眼開 (同意)', style: 'bg-emerald-600 hover:bg-emerald-500', resolveWith: 'accept'},
+                        {text: '堅拒割愛 (拒絕)', style: 'bg-red-500 hover:bg-red-600', resolveWith: 'reject'}
+                    ]
+                ).then(async (res) => {
+                    window.isNegotiatingBuyout = false;
+                    
+                    if (res === 'accept') {
+                        let buyerIdx = roomState.players.findIndex(p => p.uid === buyer.uid);
+                        let sellerIdx = roomState.players.findIndex(p => p.uid === currentUser.uid);
+                        let players = [...roomState.players];
+                        
+                        players[buyerIdx].money -= offer.price;
+                        players[sellerIdx].money += offer.price;
+                        
+                        let props = {...roomState.properties};
+                        let oldLevel = getPropData(tile.id).level || 1;
+                        props[tile.id] = { owner: buyer.uid, level: oldLevel };
+                        
+                        await update(getRoomRef(currentRoomId), { 
+                            players, 
+                            properties: props, 
+                            'buyoutOffer.status': 'accepted' 
+                        });
+                    } else {
+                        await update(getRoomRef(currentRoomId), { 
+                            'buyoutOffer.status': 'rejected' 
+                        });
+                    }
+                });
+            }
+        };
+
+        // ==========================================
+        // 7. 遊戲行動邏輯 (擲骰子與踩格)
+        // ==========================================
+        document.getElementById('btn-roll').onclick = async () => {
+            document.getElementById('btn-roll').classList.add('hidden');
+            const diceDisplay = document.getElementById('dice-display');
+            diceDisplay.classList.add('animate-dice');
+            
+            let rollInterval = setInterval(() => { diceDisplay.innerText = `🎲 ${Math.floor(Math.random() * 6) + 1}`; }, 80);
+            await new Promise(r => setTimeout(r, 400));
+            clearInterval(rollInterval);
+            diceDisplay.classList.remove('animate-dice');
+
+            const dice = Math.floor(Math.random() * 6) + 1;
+            diceDisplay.innerText = `🎲 ${dice}`;
+            
+            const pIdx = roomState.turnIndex % roomState.players.length;
+            let player = {...roomState.players[pIdx]};
+            
+            const oldPos = player.pos;
+            let currentPos = player.pos;
+
+            for(let i = 1; i <= dice; i++) {
+                currentPos = (currentPos + 1) % 42;
+                let tempPlayers = [...roomState.players];
+                tempPlayers[pIdx] = {...player, pos: currentPos};
+                await update(getRoomRef(currentRoomId), { players: tempPlayers });
+                await new Promise(r => setTimeout(r, 200)); 
+            }
+            
+            player.pos = currentPos;
+            
+            let startMsg = player.pos < oldPos ? `經過起點領取 $2000！` : "";
+            if (player.pos < oldPos) player.money += 2000;
+
+            const tile = MAP_TILES[player.pos];
+            let logs = [...roomState.logs, `${player.name} 擲出 ${dice}，抵達【${tile.name}】。${startMsg}`];
+
+            let tempPlayers = [...roomState.players];
+            tempPlayers[pIdx] = player;
+            await update(getRoomRef(currentRoomId), { players: tempPlayers, logs: logs });
+
+            setTimeout(() => handleTileAction(player, pIdx, tile, logs), 200);
+        };
+
+        const handleTileAction = async (player, pIndex, tile, currentLogs) => {
+            let logs = [...currentLogs];
+            
+            if (tile.type === 'start' || tile.type === 'rest') {
+                await checkAndFinalizeTurn(player, pIndex, logs);
+            } 
+            else if (tile.type === 'tax') {
+                const tax = tile.id === 7 ? 500 : 1000;
+                await showModal("💸 稅務局", `<div class="text-center"><div class="text-4xl mb-2">🏛️</div>繳納${tile.name} <b class="text-red-500">$${tax}</b>！</div>`);
+                player.money -= tax;
+                logs.push(`${player.name} 繳納了 $${tax} 稅款。`);
+                await checkAndFinalizeTurn(player, pIndex, logs);
+            }
+            else if (tile.type === 'chance' || tile.type === 'destiny') {
+                const card = CHANCE_CARDS[Math.floor(Math.random() * CHANCE_CARDS.length)];
+                await showModal(`🌟 ${tile.name}`, `<div class="text-xl text-center py-6 text-purple-700 font-black bg-purple-50 rounded-xl">${card.msg}</div>`);
+                player.money += card.amt;
+                logs.push(`${player.name} 遇到${tile.name}：${card.msg}`);
+                await checkAndFinalizeTurn(player, pIndex, logs);
+            }
+            else if (tile.type === 'property') {
+                const prop = getPropData(tile.id);
+                const currentPrice = getCurrentPrice(tile);
+                
+                if (!prop) {
+                    // --- 買空地 ---
+                    if (player.money >= currentPrice) {
+                        const wantBuy = await showModal(`🏢 投資決策：${tile.name}`, 
+                            `<div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                                <p class="text-lg">最新市值：<b class="text-slate-800">$${currentPrice}</b></p>
+                                <p class="mt-2 text-sm text-slate-500">回答一條 BAFS 題目 (15秒限時) 即可獲得收購權利。</p>
+                            </div>`, 
+                            [{text: '挑戰收購', style: 'bg-emerald-600 hover:bg-emerald-500', resolveWith: true}, {text: '放棄', style: 'bg-slate-400', resolveWith: false}]
+                        );
+
+                        if (wantBuy) {
+                            if (await triggerBAFSQuestion()) {
+                                await showModal("🎉 收購成功", "商業知識過關！成功購入地段。");
+                                player.money -= currentPrice;
+                                let newProps = {...roomState.properties}; newProps[tile.id] = { owner: player.uid, level: 1 };
+                                logs.push(`${player.name} 成功收購了 ${tile.name}。`);
+                                await update(getRoomRef(currentRoomId), { properties: newProps });
+                            } else {
+                                await showModal("❌ 收購失敗", "回答錯誤或超時！銀行拒絕了你的申請。");
+                                logs.push(`${player.name} 收購 ${tile.name} 失敗。`);
+                            }
+                        }
+                    } else {
+                        await showModal("⚠️ 資金不足", `現金不足以購買 ${tile.name} (市值 $${currentPrice})。`);
+                    }
+                    await checkAndFinalizeTurn(player, pIndex, logs);
+                } 
+                else if (prop.owner === player.uid) {
+                    // --- 升級自己的物業 ---
+                    if (prop.level < 3) {
+                        const upgradeCost = Math.floor(currentPrice * 0.5);
+                        const wantUpgrade = await showModal(`🏗️ 升級物業：${tile.name}`, 
+                            `<div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                                <p class="text-lg">目前等級：<b class="text-blue-600">${'⭐'.repeat(prop.level)}</b></p>
+                                <p class="text-lg mt-2">升級費用：<b class="text-slate-800">$${upgradeCost}</b></p>
+                                <p class="mt-2 text-sm text-red-600 font-bold">💡 升級後租金將會倍增！</p>
+                                <p class="mt-2 text-sm text-slate-500">回答一條 BAFS 題目 (15秒限時) 以獲取建築許可。</p>
+                            </div>`, 
+                            [{text: '挑戰升級', style: 'bg-blue-600 hover:bg-blue-500', resolveWith: true}, {text: '放棄', style: 'bg-slate-400', resolveWith: false}]
+                        );
+
+                        if (wantUpgrade) {
+                            if (player.money >= upgradeCost) {
+                                if (await triggerBAFSQuestion()) {
+                                    await showModal("🎉 升級成功", "建築許可獲批！物業已升級。");
+                                    player.money -= upgradeCost;
+                                    let newProps = {...roomState.properties}; 
+                                    newProps[tile.id] = { owner: player.uid, level: prop.level + 1 };
+                                    logs.push(`${player.name} 將 ${tile.name} 升級至 Level ${prop.level + 1}。`);
+                                    await update(getRoomRef(currentRoomId), { properties: newProps });
+                                } else {
+                                    await showModal("❌ 升級失敗", "回答錯誤或超時！政府駁回了申請。");
+                                    logs.push(`${player.name} 升級 ${tile.name} 失敗。`);
+                                }
+                            } else {
+                                await showModal("⚠️ 資金不足", `現金不足以升級 ${tile.name} ($${upgradeCost})。`);
+                            }
+                        }
+                    } else {
+                        logs.push(`${player.name} 回到了已達最高等級的 ${tile.name}。`);
+                    }
+                    await checkAndFinalizeTurn(player, pIndex, logs);
+                }
+                else {
+                    // --- 踩中別人的地盤 (交租 + 收購要約) ---
+                    const ownerPlayer = roomState.players.find(p => p.uid === prop.owner);
+                    if (ownerPlayer && !ownerPlayer.isBankrupt) {
+                        // 1. 交租邏輯
+                        let rent = getCurrentRent(tile, prop.level);
+                        await showModal("💰 支付租金", 
+                            `<div class="bg-red-50 p-4 rounded-xl border border-red-100 text-center">
+                                <p>踩中 ${ownerPlayer.name} 的地盤！(Level ${prop.level})</p>
+                                <p class="text-2xl font-black text-red-600 my-2">租金：$${rent}</p>
+                                <p class="text-sm text-slate-600">限時 15 秒！答對 BAFS 挑戰可享 <b>半價</b> 優惠！</p>
+                            </div>`
+                        );
+                        
+                        if (await triggerBAFSQuestion()) {
+                            rent = Math.floor(rent / 2);
+                            await showModal("🤝 談判成功", `運用知識成功爭取半價，只需支付 $${rent}。`);
+                        } else {
+                            await showModal("💸 談判破裂", `未能通過挑戰或超時，需支付全額租金 $${rent}。`);
+                        }
+
+                        player.money -= rent;
+                        let updatedPlayers = [...roomState.players];
+                        updatedPlayers[pIndex] = player;
+                        const oIdx = updatedPlayers.findIndex(p => p.uid === prop.owner);
+                        if (oIdx !== -1) {
+                            updatedPlayers[oIdx] = {...updatedPlayers[oIdx]};
+                            updatedPlayers[oIdx].money += rent;
+                        }
+                        logs.push(`${player.name} 支付 $${rent} 租金給 ${ownerPlayer.name}。`);
+                        
+                        // 立即將交租結果同步至資料庫 (因為接著可能會有非同步的收購要約)
+                        await update(getRoomRef(currentRoomId), { players: updatedPlayers, logs: logs });
+
+                        // 2. 提出收購要約邏輯 (前提：交租後未破產)
+                        if (player.money >= 0) {
+                            const wantBuyout = await showModal("🤝 發起商業收購", 
+                                `<div class="text-center p-4">
+                                    <p>你已支付租金。你想向 <b>${ownerPlayer.name}</b> 發出收購 <b>【${tile.name}】</b> 的要約嗎？</p>
+                                    <p class="text-xs text-slate-500 mt-2">最新市價估值: $${currentPrice}</p>
+                                </div>`,
+                                [{text: '發起要約', style: 'bg-blue-600 hover:bg-blue-500', resolveWith: true}, {text: '結束回合', style: 'bg-slate-400 hover:bg-slate-500', resolveWith: false}]
+                            );
+
+                            if (wantBuyout) {
+                                const offerHtml = `
+                                    <div class="p-2">
+                                        <p class="mb-4 text-slate-600 text-sm">你的可用現金: <b class="text-emerald-600">$${player.money}</b></p>
+                                        <input type="number" id="buyout-price" value="${currentPrice}" class="w-full p-3 border-2 border-slate-200 rounded-xl text-xl font-black text-center text-blue-600 focus:outline-none focus:border-blue-500" placeholder="報價金額">
+                                    </div>
+                                `;
+                                const sendOffer = await showModal("💸 輸入收購報價", offerHtml, [
+                                    {text: '送出報價', style: 'bg-emerald-600 hover:bg-emerald-500', resolveWith: 'send'},
+                                    {text: '取消', style: 'bg-slate-400 hover:bg-slate-500', resolveWith: 'cancel'}
+                                ]);
+                                
+                                if (sendOffer === 'send') {
+                                    const price = parseInt(document.getElementById('buyout-price').value);
+                                    if (price > player.money) {
+                                        await showModal("⚠️ 資金不足", "你的現金不足以支付此報價！");
+                                        // 資金不足，直接結束回合
+                                    } else if (price > 0) {
+                                        // 發送收購邀請並進入輪詢等待
+                                        await update(getRoomRef(currentRoomId), {
+                                            buyoutOffer: { from: player.uid, to: ownerPlayer.uid, tileId: tile.id, price: price, status: 'pending' }
+                                        });
+                                        
+                                        showModal("⏳ 等待回應", `<div class="text-center p-6"><div class="text-4xl animate-bounce mb-4">📨</div>正在等待 ${ownerPlayer.name} 回覆你的收購要約...</div>`, []);
+                                        
+                                        // 迴圈監聽資料庫中 buyoutOffer 的狀態改變
+                                        const waitInterval = setInterval(async () => {
+                                            if (roomState && roomState.buyoutOffer && roomState.buyoutOffer.status !== 'pending') {
+                                                clearInterval(waitInterval);
+                                                document.getElementById('global-modal').classList.add('hidden'); // 關閉等待視窗
+                                                
+                                                const finalStatus = roomState.buyoutOffer.status;
+                                                let newLogs = [...roomState.logs];
+                                                
+                                                if (finalStatus === 'accepted') {
+                                                    newLogs.push(`🤝 ${ownerPlayer.name} 接受了報價！${player.name} 以 $${price} 成功收購 ${tile.name}。`);
+                                                    await showModal("🎉 收購成功", "對方接受了你的報價，產權與資金已完成交割！");
+                                                } else {
+                                                    newLogs.push(`❌ ${ownerPlayer.name} 拒絕了 ${player.name} 的收購報價 ($${price})。`);
+                                                    await showModal("💔 收購失敗", "對方拒絕了你的報價！");
+                                                }
+                                                
+                                                await update(getRoomRef(currentRoomId), { buyoutOffer: null, logs: newLogs });
+                                                
+                                                // 因為業主(被收購方)在接受時會修改你的金錢，這裡必須重新抓取最新的玩家數據來結束回合
+                                                const refreshedPlayer = roomState.players.find(p => p.uid === player.uid);
+                                                await checkAndFinalizeTurn(refreshedPlayer, pIndex, newLogs);
+                                            }
+                                        }, 500);
+                                        return; // 終止目前的執行緒，由 setInterval 來負責結束回合
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // 若不發起收購，或發起收購失敗，使用最新的玩家數據結算
+                        const finalPlayer = roomState.players.find(p => p.uid === player.uid);
+                        await checkAndFinalizeTurn(finalPlayer, pIndex, roomState.logs);
+                    } else {
+                        await checkAndFinalizeTurn(player, pIndex, logs);
+                    }
+                }
+            }
+        };
+
+        const triggerBAFSQuestion = () => {
+            return new Promise((resolve) => {
+                const q = BAFS_QUESTIONS[Math.floor(Math.random() * BAFS_QUESTIONS.length)];
+                let html = `
+                    <div class="flex items-center justify-between mb-4 bg-red-50 p-3 rounded-xl border border-red-100 shadow-inner">
+                        <div class="font-bold text-red-600 flex items-center gap-2">
+                            <span class="text-2xl animate-pulse">⏳</span> 剩餘時間
+                        </div>
+                        <div class="text-3xl font-black text-red-600 w-12 text-center" id="bafs-timer">15</div>
+                    </div>
+                    <p class="font-black text-lg mb-4 text-slate-800 leading-relaxed">${q.q}</p>
+                    <div class="space-y-3">
+                `;
+                q.options.forEach((opt, i) => {
+                    html += `<button class="w-full text-left p-4 border-2 border-slate-200 rounded-xl hover:bg-blue-50 hover:border-blue-400 font-bold text-slate-700 transition-all bafs-ans-btn" data-idx="${i}">${String.fromCharCode(65+i)}. ${opt}</button>`;
+                });
+                html += `</div>`;
+                
+                showModal(`<span class="flex items-center gap-2">🧠 知識挑戰 (限時)</span>`, html, []);
+                
+                let timeLeft = 15;
+                let timerEl = document.getElementById('bafs-timer');
+                let interval = setInterval(() => {
+                    timeLeft--;
+                    if(timerEl) timerEl.innerText = timeLeft;
+                    if (timeLeft <= 0) {
+                        clearInterval(interval);
+                        document.getElementById('global-modal').classList.add('hidden');
+                        resolve(false); 
+                    }
+                }, 1000);
+
+                document.getElementById('modal-body').querySelectorAll('.bafs-ans-btn').forEach(btn => {
+                    btn.onclick = () => {
+                        clearInterval(interval);
+                        document.getElementById('global-modal').classList.add('hidden');
+                        resolve(parseInt(btn.getAttribute('data-idx')) === q.ans);
+                    };
+                });
+            });
+        };
+
+        window.onload = initFirebase;
     </script>
 </body>
 </html>
