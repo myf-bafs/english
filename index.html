@@ -86,7 +86,7 @@
             text-align: center;
             box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.15);
             border: 3px dashed #94a3b8;
-            margin: 4%; /* 這裡控制內圈的縮小幅度 */
+            margin: 4%; 
             position: relative;
         }
 
@@ -119,6 +119,12 @@
         input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
         
         .font-mono { font-family: 'Montserrat', monospace; }
+        
+        /* 滾動條樣式 */
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #64748b; }
     </style>
 </head>
 <body class="h-screen flex flex-col text-slate-800 selection:bg-blue-200">
@@ -261,13 +267,13 @@
                     <span class="text-[10px] text-blue-600 font-bold bg-blue-100 px-2 py-1 rounded-full">點擊玩家查閱與交易</span>
                 </div>
                 
-                <div id="in-game-players" class="flex-1 overflow-y-auto p-3 space-y-3 bg-slate-100/50"></div>
+                <div id="in-game-players" class="flex-1 overflow-y-auto p-3 space-y-3 bg-slate-100/50 custom-scrollbar"></div>
                 
                 <div class="h-1/3 lg:h-2/5 flex flex-col border-t border-slate-200 shadow-[0_-5px_15px_rgba(0,0,0,0.03)]">
                     <div class="bg-white text-xs font-black text-slate-600 p-3 px-4 uppercase tracking-wider flex items-center gap-2 border-b border-slate-100">
                         <span>📜</span> 市場動態紀錄
                     </div>
-                    <div id="game-logs" class="flex-1 overflow-y-auto p-4 text-[11px] md:text-xs space-y-2 font-mono text-slate-700 bg-white/50"></div>
+                    <div id="game-logs" class="flex-1 overflow-y-auto p-4 text-[11px] md:text-xs space-y-2 font-mono text-slate-700 bg-white/50 custom-scrollbar"></div>
                 </div>
             </div>
         </div>
@@ -280,7 +286,7 @@
                     <h2 class="text-3xl font-black drop-shadow-md">年度結算報告</h2>
                     <p class="font-bold opacity-90 mt-1">遊戲結束：經營時限已到</p>
                 </div>
-                <div class="p-6 max-h-[60vh] overflow-y-auto bg-slate-50">
+                <div class="p-6 max-h-[60vh] overflow-y-auto bg-slate-50 custom-scrollbar">
                     <table class="w-full text-left">
                         <thead>
                             <tr class="border-b-2 border-slate-200 text-slate-500 text-sm">
@@ -310,7 +316,7 @@
             <div id="modal-header" class="bg-gradient-to-r from-slate-800 to-slate-700 text-white p-5 font-black text-lg tracking-wide flex justify-between items-center">
                 <span>提示</span>
             </div>
-            <div id="modal-body" class="p-0 text-slate-700 overflow-y-auto flex-1 text-base">
+            <div id="modal-body" class="p-0 text-slate-700 overflow-y-auto flex-1 text-base custom-scrollbar">
                 內容
             </div>
             <div id="modal-footer" class="bg-slate-50 p-4 border-t border-slate-200 flex justify-end gap-3 rounded-b-3xl"></div>
@@ -354,7 +360,7 @@
         // 賦予不同玩家獨特的交通工具圖示
         const PLAYER_STYLES = [
             { color: '#ef4444', icon: 'fa-car-side', role: '跑車' },
-            { color: '#3b82f6', icon: 'fa-ship', role: '遊輪' },
+            { color: '#3b82f6', icon: 'fa-ship', role: '渡輪' },
             { color: '#10b981', icon: 'fa-plane', role: '飛機' },
             { color: '#f59e0b', icon: 'fa-train', role: '火車' },
             { color: '#8b5cf6', icon: 'fa-truck', role: '貨車' },
@@ -678,7 +684,7 @@
             });
 
             let totalVal = player.money;
-            let html = `<div class="max-h-[60vh] overflow-y-auto space-y-3 pr-2 pb-4 pt-4 px-5">`;
+            let html = `<div class="max-h-[60vh] overflow-y-auto space-y-3 pr-2 pb-4 pt-4 px-5 custom-scrollbar">`;
             
             html += `
                 <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-2">
@@ -725,6 +731,8 @@
                     const prop = getPropData(tileId);
                     totalVal += currentPrice;
                     
+                    const buyPrice = prop.buyPrice || tile.price; // 支援顯示購入價
+                    
                     let actionBtn = '';
                     if (!isMe && !player.isBankrupt) {
                         actionBtn = `<button class="text-xs bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded-lg shadow mt-2 w-full font-bold transition-transform active:scale-95" onclick="window.initiateTradeAnytime(${tile.id}, '${uid}', 'buy')">提出收購</button>`;
@@ -734,9 +742,12 @@
 
                     html += `
                         <div class="border-2 p-3 rounded-2xl bg-white shadow-sm flex flex-col hover:bg-slate-50 transition" style="border-color: ${tile.color}">
-                            <div class="flex justify-between items-center font-black text-sm text-slate-800">
+                            <div class="flex justify-between items-center font-black text-sm text-slate-800 mb-1">
                                 <span>${tile.name} <span class="text-xs text-blue-600 ml-1 tracking-tighter">${'⭐'.repeat(prop.level)}</span></span>
-                                <span class="text-blue-700 bg-blue-50 px-2 py-0.5 rounded-lg font-mono">估值 $${currentPrice}</span>
+                            </div>
+                            <div class="flex justify-between items-center text-xs">
+                                <span class="text-slate-500 bg-slate-100 px-2 py-0.5 rounded font-mono">買入 $${buyPrice}</span>
+                                <span class="text-blue-700 bg-blue-50 px-2 py-0.5 rounded-lg font-mono font-bold">估值 $${currentPrice}</span>
                             </div>
                             ${actionBtn}
                         </div>
@@ -768,11 +779,11 @@
                 return showModal(`<span class="flex items-center gap-2 text-xl font-black"><i class="fa-solid fa-map-location-dot text-blue-600"></i> 地圖資訊</span>`, html, [{text: '關閉', style: 'bg-slate-800 text-white w-full py-3'}]);
             }
 
-            let ownerName = "🏦 銀行 (未被收購)"; let ownerColor = "#94a3b8"; let level = 0; let ownerUid = null;
+            let ownerName = "🏦 銀行 (未被收購)"; let ownerColor = "#94a3b8"; let level = 0; let ownerUid = null; let buyPrice = null;
             const prop = getPropData(tile.id);
             if (prop) {
                 const p = roomState.players.find(p => p.uid === prop.owner);
-                if (p) { ownerName = `👤 ${p.name}`; ownerColor = p.color; level = prop.level; ownerUid = p.uid; }
+                if (p) { ownerName = `👤 ${p.name}`; ownerColor = p.color; level = prop.level; ownerUid = p.uid; buyPrice = prop.buyPrice; }
             }
             const currentPrice = getCurrentPrice(tile);
             const currentRent = getCurrentRent(tile, level > 0 ? level : 1);
@@ -784,8 +795,9 @@
             }
 
             let priceTrend = "";
-            if (currentPrice > tile.price) priceTrend = `<span class="text-emerald-500 text-sm font-bold flex items-center gap-1"><i class="fa-solid fa-arrow-trend-up"></i> +${Math.round((currentPrice/tile.price-1)*100)}%</span>`;
-            else if (currentPrice < tile.price) priceTrend = `<span class="text-red-500 text-sm font-bold flex items-center gap-1"><i class="fa-solid fa-arrow-trend-down"></i> ${Math.round((currentPrice/tile.price-1)*100)}%</span>`;
+            let baseCmpPrice = buyPrice || tile.price;
+            if (currentPrice > baseCmpPrice) priceTrend = `<span class="text-emerald-500 text-sm font-bold flex items-center gap-1"><i class="fa-solid fa-arrow-trend-up"></i> +${Math.round((currentPrice/baseCmpPrice-1)*100)}%</span>`;
+            else if (currentPrice < baseCmpPrice) priceTrend = `<span class="text-red-500 text-sm font-bold flex items-center gap-1"><i class="fa-solid fa-arrow-trend-down"></i> ${Math.round((currentPrice/baseCmpPrice-1)*100)}%</span>`;
             else priceTrend = `<span class="text-slate-400 text-sm font-bold">平穩</span>`;
 
             const sectorName = SECTOR_NAMES[tile.color] || '商業板塊';
@@ -819,10 +831,13 @@
 
                         <div class="grid grid-cols-2 gap-4">
                             <!-- Valuation -->
-                            <div class="bg-slate-50 rounded-xl p-4 border border-slate-100 flex flex-col justify-center shadow-sm">
+                            <div class="bg-slate-50 rounded-xl p-4 border border-slate-100 flex flex-col justify-center shadow-sm relative">
                                 <span class="text-xs text-slate-500 font-bold uppercase tracking-wider mb-1">當前估值 (Value)</span>
                                 <div class="text-2xl font-black text-slate-800 font-mono">$${currentPrice}</div>
-                                <div class="mt-1">${priceTrend}</div>
+                                <div class="mt-1 flex items-center justify-between">
+                                    ${priceTrend}
+                                    ${buyPrice ? `<span class="text-[10px] text-slate-400 font-mono border border-slate-200 px-1 rounded">買入: $${buyPrice}</span>` : ''}
+                                </div>
                             </div>
                             <!-- Current Rent -->
                             <div class="bg-slate-50 rounded-xl p-4 border border-slate-100 flex flex-col justify-center shadow-sm">
@@ -955,13 +970,13 @@
                         if (offer.type === 'buy') {
                             if(players[senderIdx].money >= offer.price) {
                                 players[senderIdx].money -= offer.price; players[meIdx].money += offer.price;
-                                let props = {...roomState.properties}; props[tile.id] = { owner: sender.uid, level: getPropData(tile.id).level || 1 };
+                                let props = {...roomState.properties}; props[tile.id] = { owner: sender.uid, level: getPropData(tile.id).level || 1, buyPrice: offer.price };
                                 sfx.cash(); try{ await update(getRoomRef(currentRoomId), { players, properties: props, anytimeTradeOffer: { ...offer, status: 'accepted' } }); } catch(e){}
                             } else { try{await update(getRoomRef(currentRoomId), { anytimeTradeOffer: { ...offer, status: 'rejected' } });}catch(e){} }
                         } else {
                             if(players[meIdx].money >= offer.price) {
                                 players[meIdx].money -= offer.price; players[senderIdx].money += offer.price;
-                                let props = {...roomState.properties}; props[tile.id] = { owner: currentUser.uid, level: getPropData(tile.id).level || 1 };
+                                let props = {...roomState.properties}; props[tile.id] = { owner: currentUser.uid, level: getPropData(tile.id).level || 1, buyPrice: offer.price };
                                 sfx.cash(); try{await update(getRoomRef(currentRoomId), { players, properties: props, anytimeTradeOffer: { ...offer, status: 'accepted' } });}catch(e){}
                             } else {
                                 sfx.error(); alert("你的現金不足！");
@@ -990,6 +1005,22 @@
         // ==========================================
         // 5. 初始化與主畫面更新
         // ==========================================
+        const handleGlobalEventObserver = () => {
+            if (roomState && roomState.globalEvent && roomState.globalEvent.id !== window.lastSeenEventId) {
+                window.lastSeenEventId = roomState.globalEvent.id;
+                sfx.alert();
+                showModal(`<span class="flex items-center gap-2"><i class="fa-solid fa-newspaper text-blue-500"></i> 突發新聞快訊</span>`, `
+                    <div class="p-6 bg-slate-50 rounded-2xl border border-slate-200 mt-2 text-center shadow-inner">
+                        <h3 class="text-xl font-black text-slate-800 mb-4">${roomState.globalEvent.title}</h3>
+                        <p class="text-slate-700 font-bold text-sm mb-6 leading-relaxed text-justify">${roomState.globalEvent.desc}</p>
+                        <div class="bg-indigo-50 text-indigo-700 p-3 rounded-xl border border-indigo-100 font-bold flex items-center justify-center gap-2 shadow-sm">
+                            <i class="fa-solid fa-bolt"></i> 影響：${roomState.globalEvent.impact}
+                        </div>
+                    </div>
+                `, [{text: '我已了解', style: 'bg-blue-600 hover:bg-blue-500 w-full py-3 shadow-lg', resolveWith: true}]);
+            }
+        };
+
         const updateUI = () => {
             if (!roomState) return;
 
@@ -1041,6 +1072,12 @@
                 handleBuyoutOfferObserver(); 
                 handleAnytimeTradeObserver(); 
                 handleCallLoanObserver();
+                handleGlobalEventObserver();
+
+                // 用於在非同步更新 Firebase 後重新刷新「全球金融中心」卡片，避免其自動關閉
+                if (window.currentModal === 'finance') {
+                    document.getElementById('btn-finance-anytime').click();
+                }
             }
         };
 
@@ -1254,28 +1291,56 @@
             let updates = { players, logs, turnIndex: nextTurnIndex };
             
             if (nextTurnIndex > 0 && nextTurnIndex % players.length === 0) {
+                let triggerEvent = null;
+
                 if (Math.random() < 0.25) { 
                     let currIdx = ECO_PHASES.indexOf(roomState.ecoCycle);
                     let nextCycle = ECO_PHASES[(currIdx + 1) % ECO_PHASES.length];
                     updates.ecoCycle = nextCycle;
                     logs.push(`🌍 【經濟轉型】全球經濟進入『${nextCycle}』期。`);
+                    
+                    let desc = "";
+                    if (nextCycle === '繁榮') desc = "政府宣佈大規模量化寬鬆，市場資金氾濫。市民消費力道強勁，整體企業利潤預計大幅上揚，推動地產與股市估值攀升！";
+                    if (nextCycle === '復甦') desc = "經濟逐漸走出谷底，就業率穩步回升，市場氣氛轉趨樂觀，企業開始重新規劃資本擴張。";
+                    if (nextCycle === '衰退') desc = "通膨高企導致央行收緊銀根，企業獲利指引全面下調，市場流動性開始枯竭，投資者應提高警覺。";
+                    if (nextCycle === '蕭條') desc = "金融風暴席捲全球！大量企業面臨破產邊緣，失業率飆升，所有資產價格暴跌，銀行放貸極度保守。";
+                    triggerEvent = { id: Date.now(), title: `🌍 全球經濟進入『${nextCycle}』期`, desc: desc, impact: "整體租金收益及資產估值全面調整" };
                 }
                 
                 let newStocks = {...roomState.stocks};
+                let topMover = null; let topChange = 0;
                 Object.keys(newStocks).forEach(k => {
                     let change = (Math.random() * 1.2) - 0.4; 
                     if (updates.ecoCycle === '繁榮' || roomState.ecoCycle === '繁榮') change += 0.2;
                     if (updates.ecoCycle === '蕭條' || roomState.ecoCycle === '蕭條') change -= 0.3;
                     newStocks[k].price = Math.max(10, Math.floor(newStocks[k].price * (1 + change)));
+                    if (Math.abs(change) > Math.abs(topChange)) { topChange = change; topMover = k; }
                 });
                 updates.stocks = newStocks;
 
-                let newRate = roomState.interestRate;
-                if(Math.random() < 0.3) newRate = Math.max(5, Math.min(25, newRate + (Math.random()>0.5?5:-5)));
-                if(newRate !== roomState.interestRate) {
-                    updates.interestRate = newRate;
-                    logs.push(`🏦 市場利率調整為 ${newRate}%。`);
+                if (!triggerEvent && Math.random() < 0.3 && topMover) {
+                    let s = newStocks[topMover];
+                    let isPositive = topChange > 0;
+                    let title = isPositive ? `📈 ${s.name} 宣佈重大利好` : `📉 ${s.name} 爆發經營危機`;
+                    let desc = isPositive 
+                        ? `該公司最新財報遠超市場預期，並宣佈取得劃時代的技術突破，吸引大量國際機構投資者瘋狂掃貨，股價應聲暴漲！`
+                        : `內部吹哨人爆料該公司存在嚴重財務造假，管理層遭監管機構徹夜帶走調查，引發市場恐慌性拋售，股價雪崩！`;
+                    triggerEvent = { id: Date.now() + 1, title, desc, impact: `${s.name} 股價劇烈波動 (${isPositive ? '+' : ''}${Math.round(topChange*100)}%)` };
                 }
+
+                let newRate = roomState.interestRate;
+                if(Math.random() < 0.3) {
+                    newRate = Math.max(5, Math.min(25, newRate + (Math.random()>0.5?5:-5)));
+                    if(newRate !== roomState.interestRate) {
+                        updates.interestRate = newRate;
+                        logs.push(`🏦 市場利率調整為 ${newRate}%。`);
+                        if (!triggerEvent) {
+                            triggerEvent = { id: Date.now() + 2, title: `🏦 央行調整基準利率`, desc: `為了應對當前的通膨與經濟數據，中央銀行宣佈最新貨幣政策，將市場基準利率即時調整至 ${newRate}%。`, impact: `借貸成本將受直接影響` };
+                        }
+                    }
+                }
+
+                if (triggerEvent) updates.globalEvent = triggerEvent;
             }
             try { await update(getRoomRef(currentRoomId), updates); } catch(e) { console.error("回合更新失敗", e); }
         };
@@ -1377,6 +1442,7 @@
         // 6. 全局金融中心 (10隻股票、自訂借貸、保險)
         // ==========================================
         document.getElementById('btn-finance-anytime').onclick = () => {
+            window.currentModal = 'finance';
             const meIdx = roomState.players.findIndex(p => p.uid === currentUser.uid);
             if (meIdx === -1) return;
             let player = roomState.players[meIdx];
@@ -1390,7 +1456,7 @@
             const ratio = player.loan > 0 ? (nav / player.loan).toFixed(2) : "∞";
             const isCrisis = player.loan > 0 && (nav / player.loan) < 0.1;
 
-            let stocksHtml = '<div class="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-[30vh] overflow-y-auto pr-1 mt-2">';
+            let stocksHtml = '<div class="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-[30vh] overflow-y-auto pr-1 mt-2 custom-scrollbar">';
             for (const [sym, stockDef] of Object.entries(roomState.stocks)) {
                 let myQty = player.portfolio[sym]?.qty || 0;
                 stocksHtml += `
@@ -1456,6 +1522,7 @@
 
             window.financeAction = async (act, sym, amtStr) => {
                 let players = [...roomState.players]; let p = players[meIdx]; let logs = [...roomState.logs];
+                let hasError = false;
                 
                 if (act === 'borrow') { 
                     let amt = parseInt(amtStr); if(!amt || amt<=0) return;
@@ -1467,15 +1534,16 @@
                     
                     if (amt > pMaxBorrow) {
                         sfx.error();
-                        return showModal("❌ 借貸失敗", `<div class='p-5 text-center'>銀行拒絕了您的申請。您的信貸額度上限為 <b class='font-mono text-lg text-blue-600'>$${pMaxBorrow}</b>。<br><br><span class="text-sm text-slate-500">提示：信貸上限為您總資產淨值(NAV)的 50%。</span></div>`, [{text: '關閉', style: 'bg-slate-800 hover:bg-slate-700 w-full py-3'}]);
+                        hasError = true;
+                        showModal("❌ 借貸失敗", `<div class='p-5 text-center'>銀行拒絕了您的申請。您的信貸額度上限為 <b class='font-mono text-lg text-blue-600'>$${pMaxBorrow}</b>。<br><br><span class="text-sm text-slate-500">提示：信貸上限為您總資產淨值(NAV)的 50%。</span></div>`, [{text: '關閉', style: 'bg-slate-800 hover:bg-slate-700 w-full py-3'}]);
+                    } else {
+                        p.money += amt; p.loan = (p.loan||0) + amt; logs.push(`🏦 ${p.name} 向銀行貸款 $${amt}。`); sfx.cash(); 
                     }
-
-                    p.money += amt; p.loan = (p.loan||0) + amt; logs.push(`🏦 ${p.name} 向銀行貸款 $${amt}。`); sfx.cash(); 
                 }
                 if (act === 'repay') { 
                     let amt = parseInt(amtStr); if(!amt || amt<=0) return;
                     if (p.loan >= amt && p.money >= amt) { p.money -= amt; p.loan -= amt; logs.push(`🏦 ${p.name} 償還銀行貸款 $${amt}。`); sfx.cash(); }
-                    else { sfx.error(); alert("現金不足或貸款額度有誤！"); return; }
+                    else { sfx.error(); hasError = true; alert("現金不足或貸款額度有誤！"); }
                 }
                 
                 if (act === 'buyStock' || act === 'sellStock') {
@@ -1488,12 +1556,12 @@
                             let oldTotal = port.qty * port.avg; port.qty += qty; 
                             port.avg = Math.round((oldTotal + totalCost) / port.qty);
                             logs.push(`📈 ${p.name} 買入 ${qty} 股 ${stockDef.name}。`); sfx.cash(); 
-                        } else { sfx.error(); alert("現金不足！"); return; }
+                        } else { sfx.error(); hasError = true; alert("現金不足！"); }
                     } else if (act === 'sellStock') {
                         if (port.qty >= qty) { 
                             p.money += totalCost; port.qty -= qty; if(port.qty === 0) port.avg = 0;
                             logs.push(`📉 ${p.name} 賣出 ${qty} 股 ${stockDef.name}。`); sfx.cash(); 
-                        } else { sfx.error(); alert("股票數量不足！"); return; }
+                        } else { sfx.error(); hasError = true; alert("股票數量不足！"); }
                     }
                 }
                 
@@ -1503,14 +1571,19 @@
                         p.money -= cost; p.insurances[sym] = true; 
                         let insName = sym==='tax'?'稅務':sym==='accident'?'意外':'綜合';
                         logs.push(`🛡️ ${p.name} 購買了${insName}保險。`); sfx.success(); 
-                    } else if (p.money < cost) { sfx.error(); alert("資金不足！"); return; }
+                    } else { sfx.error(); hasError = true; alert("資金不足！"); }
                 }
 
-                try { await update(getRoomRef(currentRoomId), { players, logs }); } catch(e) { console.error(e); }
-                document.getElementById('global-modal').classList.add('hidden');
+                if (!hasError) {
+                    try { await update(getRoomRef(currentRoomId), { players, logs }); } catch(e) { console.error(e); }
+                    // 取消自動關閉彈窗，並在更新後重新觸發按鈕，達到無縫刷新介面的效果
+                    setTimeout(() => { document.getElementById('btn-finance-anytime').click(); }, 300);
+                }
             };
 
-            showModal(`<span class="flex items-center gap-2 font-black text-xl"><i class="fa-solid fa-building-columns text-indigo-600"></i> 全球金融中心</span>`, html, [{text: '離開中心', style: 'bg-slate-800 hover:bg-slate-700 w-full py-3 shadow-lg'}]);
+            showModal(`<span class="flex items-center gap-2 font-black text-xl"><i class="fa-solid fa-building-columns text-indigo-600"></i> 全球金融中心</span>`, html, [{text: '離開中心', style: 'bg-slate-800 hover:bg-slate-700 w-full py-3 shadow-lg', resolveWith: true}]).then(() => {
+                window.currentModal = null;
+            });
         };
 
         // ==========================================
@@ -1627,7 +1700,7 @@
                         if (wantBuy) {
                             if (await triggerBAFSQuestion()) {
                                 sfx.cash(); await showModal("🎉 收購成功", "<div class='text-center p-6 text-emerald-600 font-bold text-xl'>商業知識過關！成功購入企業。</div>");
-                                player.money -= currentPrice; let newProps = {...roomState.properties}; newProps[tile.id] = { owner: player.uid, level: 1 };
+                                player.money -= currentPrice; let newProps = {...roomState.properties}; newProps[tile.id] = { owner: player.uid, level: 1, buyPrice: currentPrice };
                                 logs.push(`${player.name} 成功收購了 ${tile.name}。`); try{await update(getRoomRef(currentRoomId), { properties: newProps });}catch(e){}
                             } else { sfx.error(); await showModal("❌ 收購失敗", "<div class='text-center p-6 text-red-600 font-bold text-xl'>回答錯誤或超時！銀行拒絕了你的申請。</div>"); }
                         }
@@ -1655,7 +1728,7 @@
 
                             if (wantUpgrade) {
                                 if (await triggerBAFSQuestion()) {
-                                    sfx.cash(); player.money -= upgradeCost; let newProps = {...roomState.properties}; newProps[tile.id] = { owner: player.uid, level: prop.level + 1 };
+                                    sfx.cash(); player.money -= upgradeCost; let newProps = {...roomState.properties}; newProps[tile.id] = { owner: player.uid, level: prop.level + 1, buyPrice: prop.buyPrice || currentPrice };
                                     logs.push(`${player.name} 將 ${tile.name} 擴展至 Level ${prop.level + 1}。`); try{await update(getRoomRef(currentRoomId), { properties: newProps });}catch(e){}
                                     await showModal("🎉 升級成功", "<div class='text-center p-6 text-emerald-600 font-bold text-xl'>擴張計劃獲批！</div>");
                                 } else { sfx.error(); await showModal("❌ 升級失敗", "<div class='text-center p-6 text-red-600 font-bold text-xl'>回答錯誤或超時！</div>"); }
@@ -1735,22 +1808,47 @@
             
             let hasStocks = Object.values(player.portfolio||{}).some(s => s.qty>0);
             if (hasStocks) {
-                let allStockVal = getStockValue(player);
-                html += `<div class="border-2 border-blue-200 p-4 rounded-2xl mb-4 flex justify-between items-center bg-blue-50 shadow-sm">
-                    <span class="font-bold text-blue-800">📈 股票套現 <br><span class="text-xl font-black text-blue-600 font-mono">$${allStockVal}</span></span>
-                    <button onclick="window.sellStockLiq()" class="bg-blue-600 text-white px-4 py-2 rounded-xl font-bold shadow-md hover:bg-blue-500 transition-transform active:scale-95 whitespace-nowrap">全數賣出</button>
-                </div>`;
-                window.sellStockLiq = async () => {
+                html += `<div class="font-bold text-blue-800 mb-2 mt-4"><i class="fa-solid fa-arrow-trend-down"></i> 變賣持有股票套現</div><div class="space-y-2 mb-4">`;
+                Object.entries(player.portfolio).forEach(([sym, data]) => {
+                    if (data.qty > 0) {
+                        const s = roomState.stocks[sym];
+                        html += `
+                        <div class="flex justify-between items-center bg-white p-3 rounded-xl shadow-sm border border-slate-200">
+                            <div>
+                                <div class="font-bold text-sm text-slate-800">${s.name}</div>
+                                <div class="text-xs text-slate-500 font-mono">持有: ${data.qty} 股 | 現價: $${s.price}</div>
+                            </div>
+                            <div class="flex gap-2">
+                                <button onclick="window.sellStockLiq('${sym}', Math.min(${data.qty}, 10))" class="bg-slate-700 hover:bg-slate-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm">賣 10</button>
+                                <button onclick="window.sellStockLiq('${sym}', ${data.qty})" class="bg-rose-600 hover:bg-rose-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm">全賣</button>
+                            </div>
+                        </div>`;
+                    }
+                });
+                html += `</div>`;
+                
+                window.sellStockLiq = async (sym, qty) => {
                     document.getElementById('global-modal').classList.add('hidden'); window.isLiquidating = false;
-                    let pIdx = roomState.turnIndex % roomState.players.length; let players = [...roomState.players]; let amt = 0;
-                    Object.keys(players[pIdx].portfolio).forEach(sym => { amt += players[pIdx].portfolio[sym].qty * roomState.stocks[sym].price; players[pIdx].portfolio[sym].qty = 0; players[pIdx].portfolio[sym].avg = 0; });
-                    players[pIdx].money += amt; sfx.cash();
-                    try{await update(getRoomRef(currentRoomId), { players, logs: [...roomState.logs, `📉 ${players[pIdx].name} 破產變賣所有股票，套現 $${amt}。`] });}catch(e){}
+                    let pIdx = roomState.turnIndex % roomState.players.length; let players = [...roomState.players];
+                    let p = players[pIdx]; let stockDef = roomState.stocks[sym];
+                    let rev = qty * stockDef.price;
+                    p.money += rev;
+                    p.portfolio[sym].qty -= qty;
+                    if(p.portfolio[sym].qty === 0) p.portfolio[sym].avg = 0;
+                    sfx.cash();
+                    try { await update(getRoomRef(currentRoomId), { players, logs: [...roomState.logs, `📉 ${p.name} 變賣 ${qty} 股 ${stockDef.name}，套現 $${rev}。`] }); } catch(e){}
+                    setTimeout(() => {
+                        const latestP = roomState.players[pIdx];
+                        const nav = latestP.money + getPropertyValue(latestP.uid) + getStockValue(latestP);
+                        const ratio = latestP.loan > 0 ? (nav / latestP.loan) : Infinity;
+                        if (latestP.money < 0 || ratio < 0.1) showLiquidationModal(latestP);
+                        else checkAndFinalizeTurn(latestP, pIdx, roomState.logs);
+                    }, 500);
                 };
             }
 
             if (player.loan > 0 && player.money > 0) {
-                html += `<div class="border-2 border-indigo-200 p-4 rounded-2xl mb-4 flex justify-between items-center bg-indigo-50 shadow-sm">
+                html += `<div class="border-2 border-indigo-200 p-4 rounded-2xl mb-4 flex justify-between items-center bg-indigo-50 shadow-sm mt-4">
                     <span class="font-bold text-indigo-800">🏦 償還貸款 <br><span class="text-sm font-black text-indigo-600 font-mono tracking-tighter">欠: $${player.loan} / 現: $${player.money}</span></span>
                     <button onclick="window.repayLoanLiq()" class="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold shadow-md hover:bg-indigo-500 transition-transform active:scale-95 whitespace-nowrap">盡量償還</button>
                 </div>`;
@@ -1760,31 +1858,44 @@
                     let repayAmt = Math.min(players[pIdx].money, players[pIdx].loan);
                     players[pIdx].money -= repayAmt; players[pIdx].loan -= repayAmt; sfx.cash();
                     try{await update(getRoomRef(currentRoomId), { players, logs: [...roomState.logs, `🏦 ${players[pIdx].name} 危機中償還了 $${repayAmt} 貸款。`] });}catch(e){}
+                    setTimeout(() => {
+                        const latestP = roomState.players[pIdx];
+                        const nav = latestP.money + getPropertyValue(latestP.uid) + getStockValue(latestP);
+                        const ratio = latestP.loan > 0 ? (nav / latestP.loan) : Infinity;
+                        if (latestP.money < 0 || ratio < 0.1) showLiquidationModal(latestP);
+                        else checkAndFinalizeTurn(latestP, pIdx, roomState.logs);
+                    }, 500);
                 };
             }
 
             const myProps = Object.keys(roomState.properties).filter(k => { const p = getPropData(k); return p && p.owner === player.uid; });
-            html += `<div class="max-h-[30vh] overflow-y-auto space-y-3 pb-2 pr-1">`;
+            html += `<div class="font-bold text-amber-700 mb-2 mt-4"><i class="fa-solid fa-building"></i> 賤賣旗下實體企業</div><div class="max-h-[30vh] overflow-y-auto space-y-3 pb-2 pr-1 custom-scrollbar">`;
             myProps.forEach(tileId => {
                 const tile = MAP_TILES.find(t => t.id === parseInt(tileId));
                 const currentPrice = getCurrentPrice(tile); const bankPrice = Math.floor(currentPrice * 0.5);
                 html += `<div class="border-2 p-4 rounded-2xl bg-white shadow-sm flex flex-col gap-3" style="border-color: ${tile.color}">
                     <div class="font-black text-lg flex justify-between items-center"><span>${tile.name}</span><span class="text-xs bg-slate-100 px-2 py-1 rounded text-slate-500 border border-slate-200 font-mono">市值 $${currentPrice}</span></div>
                     <div class="flex gap-2">
-                        <button class="flex-1 bg-slate-600 text-white text-xs font-bold py-3 rounded-xl shadow-md hover:bg-slate-500 transition-transform active:scale-95" onclick="window.sellToBank(${tile.id}, ${bankPrice})">賣給銀行 ($${bankPrice})</button>
+                        <button class="flex-1 bg-slate-600 text-white text-xs font-bold py-3 rounded-xl shadow-md hover:bg-slate-500 transition-transform active:scale-95" onclick="window.sellToBank(${tile.id}, ${bankPrice})">半價賣給銀行 (得 $${bankPrice})</button>
                     </div>
                 </div>`;
             });
             html += `</div>`;
             
-            // 加入放棄掙扎的按鈕
-            html += `<div class="mt-6 border-t-2 border-red-200 pt-4"><button onclick="window.declareBankrupt()" class="w-full bg-slate-800 text-red-400 font-bold py-4 rounded-xl shadow-md hover:bg-slate-700 transition-transform active:scale-95 border border-red-900/50">☠️ 宣告破產 (放棄掙扎)</button></div>`;
+            html += `<div class="mt-6 border-t-2 border-red-200 pt-4"><button onclick="window.declareBankrupt()" class="w-full bg-slate-800 text-red-400 font-bold py-4 rounded-xl shadow-md hover:bg-slate-700 transition-transform active:scale-95 border border-red-900/50"><i class="fa-solid fa-skull"></i> 宣告破產 (放棄掙扎)</button></div>`;
             
             window.sellToBank = async (tileId, price) => {
                 document.getElementById('global-modal').classList.add('hidden'); window.isLiquidating = false;
                 let pIdx = roomState.turnIndex % roomState.players.length; let players = [...roomState.players];
                 players[pIdx].money += price; let props = {...roomState.properties}; delete props[tileId]; sfx.cash();
                 try{await update(getRoomRef(currentRoomId), { players, properties: props, logs: [...roomState.logs, `🏦 ${players[pIdx].name} 賣出企業套現 $${price}。`] });}catch(e){}
+                setTimeout(() => {
+                    const latestP = roomState.players[pIdx];
+                    const nav = latestP.money + getPropertyValue(latestP.uid) + getStockValue(latestP);
+                    const ratio = latestP.loan > 0 ? (nav / latestP.loan) : Infinity;
+                    if (latestP.money < 0 || ratio < 0.1) showLiquidationModal(latestP);
+                    else checkAndFinalizeTurn(latestP, pIdx, roomState.logs);
+                }, 500);
             };
 
             showModal("⚠️ 破產危機變賣", html, []).then(() => { window.isLiquidating = false; });
@@ -1815,7 +1926,7 @@
                         let players = [...roomState.players];
                         players.find(p=>p.uid===buyer.uid).money -= offer.price;
                         players.find(p=>p.uid===currentUser.uid).money += offer.price;
-                        let props = {...roomState.properties}; props[tile.id] = { owner: buyer.uid, level: getPropData(tile.id).level || 1 };
+                        let props = {...roomState.properties}; props[tile.id] = { owner: buyer.uid, level: getPropData(tile.id).level || 1, buyPrice: offer.price };
                         sfx.cash(); try{await update(getRoomRef(currentRoomId), { players, properties: props, buyoutOffer: { ...offer, status: 'accepted' } });}catch(e){}
                     } else { try{await update(getRoomRef(currentRoomId), { buyoutOffer: { ...offer, status: 'rejected' } });}catch(e){} }
                 });
