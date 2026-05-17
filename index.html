@@ -116,14 +116,14 @@
 <body class="h-screen flex flex-col text-slate-800 selection:bg-blue-200">
 
     <!-- 頂部導航 -->
-    <header class="bg-slate-900/80 backdrop-blur-md text-white p-3 shadow-lg flex justify-between items-center z-20 border-b border-slate-700">
-        <h1 class="text-lg md:text-2xl font-black flex items-center gap-2 text-yellow-400 drop-shadow-md tracking-wide">
-            <span class="text-2xl">🏦</span> BAFS 商業大亨
+    <header class="bg-slate-900/80 backdrop-blur-md text-white p-2 md:p-3 shadow-lg flex justify-between items-center z-20 border-b border-slate-700">
+        <h1 class="text-sm md:text-2xl font-black flex items-center gap-1 md:gap-2 text-yellow-400 drop-shadow-md tracking-wide whitespace-nowrap shrink-0">
+            <span class="text-lg md:text-2xl">🏦</span> <span class="hidden sm:inline">BAFS 商業大亨</span><span class="sm:hidden">BAFS大亨</span>
         </h1>
-        <div id="user-info" class="text-sm md:text-base hidden flex items-center gap-3">
-            <div class="bg-slate-800 px-4 py-1 rounded-full border border-slate-600 shadow-inner text-white font-bold" id="display-name"></div>
-            <button onclick="window.quitGame()" class="bg-red-600 hover:bg-red-500 text-white text-xs px-3 py-1.5 rounded-full shadow transition-colors border border-red-400 font-bold flex items-center gap-1">
-                🚪 退出遊戲
+        <div id="user-info" class="hidden flex items-center gap-1 md:gap-3 shrink-0 min-w-0">
+            <div class="bg-slate-800 px-2 md:px-4 py-1 rounded-full border border-slate-600 shadow-inner text-white font-bold text-xs md:text-base max-w-[80px] md:max-w-[150px] truncate" id="display-name"></div>
+            <button onclick="window.quitGame()" class="bg-red-600 hover:bg-red-500 text-white text-xs px-2 md:px-3 py-1.5 rounded-full shadow transition-colors border border-red-400 font-bold flex items-center gap-1 whitespace-nowrap shrink-0">
+                🚪 <span class="hidden sm:inline">退出遊戲</span><span class="sm:hidden">退出</span>
             </button>
         </div>
     </header>
@@ -837,6 +837,14 @@
         // ==========================================
         const updateUI = () => {
             if (!roomState) return;
+
+            // 確保重連時頂部導航列的使用者資訊正確顯示
+            if (currentUser && roomState.players) {
+                const me = roomState.players.find(p => p.uid === currentUser.uid);
+                if (me && !localPlayerName) localPlayerName = me.name;
+                document.getElementById('user-info').classList.remove('hidden');
+                document.getElementById('display-name').innerText = localPlayerName || "未知";
+            }
 
             if (roomState.state === 'waiting') {
                 showView('view-waiting');
