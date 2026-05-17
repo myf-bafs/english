@@ -432,6 +432,31 @@
         const getRoomsPath = () => `artifacts/${getAppId()}/public/data/rooms`;
         const getRoomRef = (roomId) => ref(db, `${getRoomsPath()}/${roomId}`);
 
+        const listenToRoom = (roomId) => {
+            if (unsubscribeRoom) unsubscribeRoom();
+            unsubscribeRoom = onValue(getRoomRef(roomId), (snapshot) => {
+                if (!snapshot.exists()) { localStorage.removeItem('bafsRoomId'); showView('view-lobby'); return; }
+                roomState = snapshot.val();
+                if (!roomState.properties) roomState.properties = {};
+                if (!roomState.logs) roomState.logs = [];
+                if (!roomState.players) roomState.players = [];
+                updateUI();
+            });
+        };
+
+        const createInitialPlayer = (uid, name, idx) => ({
+            uid: uid, name: name, money: 15000, pos: 0,
+            color: PLAYER_STYLES[idx % PLAYER_STYLES.length].color, 
+            icon: PLAYER_STYLES[idx % PLAYER_STYLES.length].icon, 
+            isBankrupt: false, loan: 0,
+            portfolio: { 
+                tech: {qty:0, avg:0}, prop: {qty:0, avg:0}, fin: {qty:0, avg:0},
+                food: {qty:0, avg:0}, med: {qty:0, avg:0}, ai: {qty:0, avg:0},
+                crypto: {qty:0, avg:0}, edu: {qty:0, avg:0}, news: {qty:0, avg:0}, eco: {qty:0, avg:0}
+            },
+            insurances: { tax: false, accident: false, comprehensive: false }
+        });
+
         // ==========================================
         // 3. UI 模態框與數值計算
         // ==========================================
@@ -1463,7 +1488,90 @@
         };
 
         // 確保 DOM 載入後才綁定初始化
-        document.addEventListener('DOMContentLoaded', initFirebase);
+        document.addEventListener('DOMContentLoaded', () => {
+            initFirebase();
+
+            document.getElementById('btn-login').onclick = () => {
+                try {
+                    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    if(audioCtx.state === 'suspended') audioCtx.resume(); 
+                } catch(e) {}
+
+                if (!currentUser) return showModal("⚠️ 尚未連線", "正在連線至伺服器，請稍候...");
+                const name = document.getElementById('input-name').value.trim();
+                if (!name) return showModal("錯誤", "請輸入董事長大名！");
+                localPlayerName = name;
+                document.getElementById('user-info').classList.remove('hidden');
+                document.getElementById('display-name').innerText = name;
+                showView('view-lobby');
+            };
+
+            document.getElementById('btn-create-room').onclick = async () => {
+                if (!currentUser) return showModal("⚠️ 錯誤", "尚未連線至伺服器！");
+                try {
+                    const code = Math.floor(1000 + Math.random() * 9000).toString();
+                    const newRoomRef = push(ref(db, getRoomsPath()));
+                    
+                    await set(newRoomRef, {
+                        roomCode: code, state: 'waiting', hostId: currentUser.uid, turnIndex: 0,
+                        ecoCycle: '復甦', interestRate: 10,
+                        stocks: {
+                            tech: { name: '量子玄學(Tech)', price: 100 }, prop: { name: '納米樓(Prop)', price: 100 },
+                            fin:  { name: '韭菜銀行(Fin)', price: 100 }, food: { name: '元素餐飲(Food)', price: 100 },
+                            med:  { name: '包治百病(Med)', price: 100 }, ai:   { name: '人工智障(AI)', price: 100 },
+                            crypto:{name: '空氣幣(Cryp)', price: 100 }, edu:  { name: '填鴨教育(Edu)', price: 100 },
+                            news: { name: '震驚傳媒(News)', price: 100 }, eco:  { name: '用愛發電(Eco)', price: 100 }
+                        },
+                        players: [createInitialPlayer(currentUser.uid, localPlayerName, 0)],
+                        properties: {}, logs: ["遊戲房間已創建。"]
+                    });
+                    currentRoomId = newRoomRef.key;
+                    localStorage.setItem('bafsRoomId', currentRoomId);
+                    listenToRoom(currentRoomId);
+                } catch (err) { showModal("❌ 創建失敗", err.message); }
+            };
+
+            document.getElementById('btn-join-room').onclick = async () => {
+                if (!currentUser) return showModal("⚠️ 錯誤", "尚未連線至伺服器！");
+                const code = document.getElementById('input-room-code').value.trim().toUpperCase();
+                const msgEl = document.getElementById('lobby-msg');
+                if (code.length !== 4) { msgEl.innerText = "請輸入 4 位數代碼"; msgEl.classList.remove('hidden'); return; }
+                msgEl.classList.add('hidden');
+                
+                try {
+                    const snapshot = await get(ref(db, getRoomsPath()));
+                    let targetRoomId = null, targetRoomData = null;
+
+                    if (snapshot.exists()) {
+                        const rooms = snapshot.val();
+                        for (const key in rooms) {
+                            if (rooms[key].roomCode === code && rooms[key].state === 'waiting') {
+                                targetRoomId = key; targetRoomData = rooms[key]; break;
+                            }
+                        }
+                    }
+
+                    if (!targetRoomId) { msgEl.innerText = "找不到房間"; msgEl.classList.remove('hidden'); return; }
+                    if (!targetRoomData.players) targetRoomData.players = [];
+
+                    if (!targetRoomData.players.find(p => p.uid === currentUser.uid)) {
+                        targetRoomData.players.push(createInitialPlayer(currentUser.uid, localPlayerName, targetRoomData.players.length));
+                        await update(getRoomRef(targetRoomId), {
+                            players: targetRoomData.players, logs: [...(targetRoomData.logs||[]), `${localPlayerName} 加入了房間！`]
+                        });
+                    }
+                    currentRoomId = targetRoomId;
+                    localStorage.setItem('bafsRoomId', currentRoomId);
+                    listenToRoom(currentRoomId);
+                } catch (err) { showModal("❌ 加入失敗", err.message); }
+            };
+
+            document.getElementById('btn-start-game').onclick = async () => {
+                if (roomState && roomState.hostId === currentUser.uid) {
+                    await update(getRoomRef(currentRoomId), { state: 'playing', logs: [...roomState.logs, "🚀 市場開盤！財務年度展開。"] });
+                }
+            };
+        });
     </script>
 </body>
 </html>
