@@ -425,7 +425,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, updateDoc, getDoc, getDocs, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getDatabase, ref, set, update, get, onValue, push } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-database.js";
 
         // ==========================================
         // 0. 音效系統
@@ -544,7 +544,7 @@
         ];
 
         // ==========================================
-        // 2. Firebase 初始化與斷線重連 (已遷移至 Firestore)
+        // 2. Firebase 初始化與即時資料庫路徑對接
         // ==========================================
         let db, auth, currentUser, currentRoomId;
         let localPlayerName = "";
@@ -552,8 +552,8 @@
         let unsubscribeRoom = null;
 
         const getAppId = () => typeof __app_id !== 'undefined' ? __app_id : 'bafs-monopoly';
-        const getRoomsCollection = () => collection(db, 'artifacts', getAppId(), 'public', 'data', 'rooms');
-        const getRoomDoc = (roomId) => doc(db, 'artifacts', getAppId(), 'public', 'data', 'rooms', roomId);
+        const getRoomsPath = () => `artifacts/${getAppId()}/public/data/rooms`;
+        const getRoomRef = (roomId) => ref(db, `${getRoomsPath()}/${roomId}`);
 
         const initFirebase = async () => {
             try {
@@ -564,7 +564,7 @@
                 if (typeof __firebase_config !== 'undefined' && __firebase_config) {
                     firebaseConfig = JSON.parse(__firebase_config);
                 } else {
-                    // Fallback to demo config if run locally
+                    // 本地測試備用設定
                     firebaseConfig = {
                         apiKey: "AIzaSyAyJVNfB6rjKujrNYkfzmnYfkBmRYugQ2Q",
                         authDomain: "monopoly-e8b2e.firebaseapp.com",
@@ -578,7 +578,7 @@
                 
                 const app = initializeApp(firebaseConfig);
                 auth = getAuth(app);
-                db = getFirestore(app);
+                db = getDatabase(app); 
                 
                 onAuthStateChanged(auth, async (user) => { 
                     if (user) {
@@ -588,7 +588,6 @@
                             btn.innerText = "進入交易所"; 
                             btn.disabled = false; 
                             
-                            // 正確附加點擊事件
                             btn.onclick = () => {
                                 try {
                                     if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -606,8 +605,8 @@
                         const savedRoomId = localStorage.getItem('bafsRoomId');
                         if (savedRoomId) {
                             try {
-                                const snap = await getDoc(getRoomDoc(savedRoomId));
-                                if (snap.exists() && snap.data().players?.find(p => p.uid === user.uid)) {
+                                const snap = await get(getRoomRef(savedRoomId));
+                                if (snap.exists() && snap.val().players?.find(p => p.uid === user.uid)) {
                                     currentRoomId = savedRoomId; listenToRoom(currentRoomId);
                                 } else { localStorage.removeItem('bafsRoomId'); }
                             } catch(e) { console.warn(e); localStorage.removeItem('bafsRoomId'); }
@@ -629,21 +628,19 @@
                     btn.disabled = false; 
                     btn.onclick = initFirebase;
                 }
-                showModal("⚠️ 伺服器連線失敗", `<div class='p-5 text-center'>無法連線至系統資料庫。<br><br>錯誤詳情：${err.message}</div>`);
+                showModal("⚠️ 伺服器連線失敗", `<div class='p-5 text-center'>無法連線至 Realtime Database 伺服器。<br><br>錯誤詳情：${err.message}</div>`);
             }
         };
 
         const listenToRoom = (roomId) => {
             if (unsubscribeRoom) unsubscribeRoom();
-            unsubscribeRoom = onSnapshot(getRoomDoc(roomId), (snapshot) => {
+            unsubscribeRoom = onValue(getRoomRef(roomId), (snapshot) => {
                 if (!snapshot.exists()) { localStorage.removeItem('bafsRoomId'); showView('view-lobby'); return; }
-                roomState = snapshot.data();
+                roomState = snapshot.val();
                 if (!roomState.properties) roomState.properties = {};
                 if (!roomState.logs) roomState.logs = [];
                 if (!roomState.players) roomState.players = [];
                 updateUI();
-            }, (error) => {
-                console.error("Firestore Listen Error:", error);
             });
         };
 
@@ -678,7 +675,7 @@
             const propData = getPropData(tileId);
             if (!propData) return false;
             
-            // 找出最大股東，需要超過50%控制權
+            // 找出最大股東，需要超過 50% 控制權
             let maxS = 0; let majorityOwner = null;
             for(let u in propData.shares) { if(propData.shares[u] > maxS) { maxS = propData.shares[u]; majorityOwner = u; } }
             if (maxS < 50) return false; 
@@ -738,7 +735,7 @@
             }
         };
 
-        // 加入 maxWidthClass 讓一般模態框可以控制寬度
+        // 模態框調寬
         const showModal = (title, htmlBody, buttons = [{ text: '確定', style: 'bg-slate-800 hover:bg-slate-700 w-full', resolveWith: true }], maxWidth = '450px') => {
             return new Promise((resolve) => {
                 const modal = document.getElementById('global-modal');
@@ -765,86 +762,6 @@
                 }
                 modal.classList.remove('hidden');
             });
-        };
-
-        window.quitGame = async () => {
-            if(!confirm("⚠️ 確定要退出遊戲嗎？你的所有資產與企業將被清空且無法復原。")) return;
-            if(roomState && currentUser && currentRoomId) {
-                let players = roomState.players.filter(p => p.uid !== currentUser.uid);
-                let updates = {
-                    players: players,
-                    logs: [...roomState.logs, `👋 ${localPlayerName} 破產清盤，退出了商界。`]
-                };
-                
-                if (roomState.properties) {
-                    let newProps = { ...roomState.properties };
-                    let propsChanged = false;
-                    Object.keys(newProps).forEach(key => {
-                        let prop = newProps[key];
-                        // 清理擁有股份的玩家
-                        if (prop.shares && prop.shares[currentUser.uid]) {
-                            delete prop.shares[currentUser.uid];
-                            if (Object.keys(prop.shares).length === 0) {
-                                delete newProps[key];
-                            } else {
-                                // 重新評估主要持有者
-                                let maxS = 0; let majority = null;
-                                for(let u in prop.shares) { if(prop.shares[u] > maxS) { maxS = prop.shares[u]; majority = u; } }
-                                prop.owner = majority;
-                                newProps[key] = prop;
-                            }
-                            propsChanged = true;
-                        }
-                    });
-                    if (propsChanged) updates.properties = newProps;
-                }
-
-                if (roomState.anytimeTradeOffer && (roomState.anytimeTradeOffer.from === currentUser.uid || roomState.anytimeTradeOffer.to === currentUser.uid)) updates.anytimeTradeOffer = null;
-                if (roomState.buyoutOffer && (roomState.buyoutOffer.from === currentUser.uid || roomState.buyoutOffer.to === currentUser.uid)) updates.buyoutOffer = null;
-                if (roomState.callLoan && roomState.callLoan.uid === currentUser.uid) updates.callLoan = null;
-
-                try { await updateDoc(getRoomDoc(currentRoomId), updates); } catch(e) {}
-            }
-            localStorage.removeItem('bafsRoomId');
-            try { await auth.signOut(); } catch(e) {}
-            location.reload();
-        };
-
-        window.declareBankrupt = async () => {
-            if (!confirm("確定要宣告破產嗎？您將失去所有資產並退出這場商業競爭。")) return;
-            document.getElementById('global-modal').classList.add('hidden'); 
-            window.isLiquidating = false;
-            
-            let pIdx = roomState.turnIndex % roomState.players.length; 
-            let players = [...roomState.players]; 
-            let p = players[pIdx];
-            
-            p.isBankrupt = true;
-            p.money = 0;
-            p.loan = 0;
-            p.portfolio = {};
-            
-            let props = {...roomState.properties};
-            Object.keys(props).forEach(k => {
-                const prop = props[k];
-                if (prop.shares && prop.shares[p.uid]) {
-                    delete prop.shares[p.uid];
-                    if (Object.keys(prop.shares).length === 0) {
-                        delete props[k];
-                    } else {
-                        let maxS = 0; let majority = null;
-                        for(let u in prop.shares) { if(prop.shares[u] > maxS) { maxS = prop.shares[u]; majority = u; } }
-                        prop.owner = majority;
-                        props[k] = prop;
-                    }
-                }
-            });
-            
-            sfx.error();
-            let logs = [...roomState.logs, `💀 ${p.name} 宣告破產！資產全部被銀行清算並釋放至市場。`];
-            
-            try { await updateDoc(getRoomDoc(currentRoomId), { players, properties: props, logs }); } catch(e) {}
-            await processEndOfTurnAndUpdate(p, pIdx, logs);
         };
 
         // ==========================================
@@ -1010,7 +927,7 @@
                     let logs = [...roomState.logs, `📉 ${p.name} 賣出 ${qtyToSell} 股 ${stockDef.name}，套現 $${revenue}。`];
                     
                     try {
-                        await updateDoc(getRoomDoc(currentRoomId), { players, logs });
+                        await update(getRoomRef(currentRoomId), { players, logs });
                     } catch(e) { console.error(e); }
                 } else {
                     sfx.error();
@@ -1018,7 +935,7 @@
                 }
             }
             
-            // 操作完成或取消後，自動重新打開該玩家的財務報表
+            // 操作完成後，自動重新打開資產清單
             window.showPlayerAssets(currentUser.uid);
         };
 
@@ -1071,7 +988,7 @@
                 let logs = [...roomState.logs, `🏦 ${me.name} 將 ${tile.name} 的 ${mySharePct}% 業權按市價售回給銀行。`];
                 
                 try {
-                    await updateDoc(getRoomDoc(currentRoomId), { players, properties: props, logs });
+                    await update(getRoomRef(currentRoomId), { players, properties: props, logs });
                     showModal("✅ 出售成功", `<div class='p-6 text-center font-bold text-emerald-600 text-xl'>已成功將業權售予銀行，獲得現金 <span class="font-mono text-2xl">$${myShareValue}</span>。</div>`, [{text: '完成', style: 'bg-slate-800 hover:bg-slate-700 w-full py-3'}]).then(() => {
                         window.showPlayerAssets(currentUser.uid);
                     });
@@ -1083,7 +1000,7 @@
             }
         };
 
-        // --- 全新設計的地契卡片 (包含多位股東聯營) ---
+        // --- 地契檔案 (聯營/獨資) ---
         const showPropertyCard = (tile) => {
             if (tile.type !== 'property') {
                 let html = `<div class="p-8 text-center bg-slate-50 m-4 rounded-2xl border border-slate-100">
@@ -1305,13 +1222,13 @@
                     const loanRes = await promptQuickLoan(me, price);
                     if (loanRes.success) {
                         let players = [...roomState.players]; players[roomState.players.findIndex(p=>p.uid===me.uid)] = me;
-                        try { await updateDoc(getRoomDoc(currentRoomId), { players, logs: [...roomState.logs, `🏦 ${me.name} 緊急貸款 $${loanRes.amt} 準備收購。`] }); } catch(e){}
+                        try { await update(getRoomRef(currentRoomId), { players, logs: [...roomState.logs, `🏦 ${me.name} 緊急貸款 $${loanRes.amt} 準備收購。`] }); } catch(e){}
                     } else { return; }
                 }
 
                 if (price > 0) {
                     window.isWaitingForReplyAnytime = true;
-                    try { await updateDoc(getRoomDoc(currentRoomId), { anytimeTradeOffer: { type: actionType, from: me.uid, to: finalTargetUid, tileId: tile.id, price: price, shares: shares, status: 'pending' } }); } catch(e){}
+                    try { await update(getRoomRef(currentRoomId), { anytimeTradeOffer: { type: actionType, from: me.uid, to: finalTargetUid, tileId: tile.id, price: price, shares: shares, status: 'pending' } }); } catch(e){}
                     showModal("⏳", "<div class='text-center p-6'><div class='text-5xl animate-bounce mb-4'><i class='fa-solid fa-envelope text-blue-500'></i></div><div class='font-bold text-slate-600 text-lg'>商業合約已送出，等待對方回覆...</div></div>", []);
                 } else { sfx.error(); await showModal("⚠️", "<div class='p-5 text-center font-bold'>無效金額</div>"); }
             }
@@ -1329,10 +1246,6 @@
                 showModal(`🤝 ${title}`, `
                     <div class="text-center space-y-4 my-4 p-4 border border-slate-200 rounded-2xl bg-slate-50">
                         <p class="text-lg text-slate-700"><b>${sender.name}</b> ${desc}</p>
-                        <div class="bg-white py-2 rounded-xl border border-slate-200 shadow-sm">
-                            <span class="text-xs font-bold text-slate-500 uppercase tracking-wider block">該地段最新市值估價</span>
-                            <span class="text-xl font-bold text-slate-700 font-mono">$${getCurrentPrice(tile)}</span>
-                        </div>
                         <div class="bg-blue-50 py-4 rounded-xl border-2 border-blue-200 shadow-inner mt-2">
                             <span class="text-sm font-bold text-blue-500 uppercase tracking-wider block mb-1">對方合約作價</span>
                             <span class="text-4xl font-black text-blue-700 font-mono">$${offer.price}</span>
@@ -1366,12 +1279,12 @@
                             props[tile.id] = pData;
 
                             sfx.cash(); 
-                            try{ await updateDoc(getRoomDoc(currentRoomId), { players, properties: props, anytimeTradeOffer: { ...offer, status: 'accepted' } }); } catch(e){}
+                            try{ await update(getRoomRef(currentRoomId), { players, properties: props, anytimeTradeOffer: { ...offer, status: 'accepted' } }); } catch(e){}
                         } else {
                             if (buyerIdx === meIdx) { sfx.error(); alert("你的現金不足！"); }
-                            try{await updateDoc(getRoomDoc(currentRoomId), { anytimeTradeOffer: { ...offer, status: 'rejected' } });}catch(e){}
+                            try{await update(getRoomRef(currentRoomId), { anytimeTradeOffer: { ...offer, status: 'rejected' } });}catch(e){}
                         }
-                    } else { try{await updateDoc(getRoomDoc(currentRoomId), { anytimeTradeOffer: { ...offer, status: 'rejected' } });}catch(e){} }
+                    } else { try{await update(getRoomRef(currentRoomId), { anytimeTradeOffer: { ...offer, status: 'rejected' } });}catch(e){} }
                 });
             } else if (roomState && roomState.anytimeTradeOffer && roomState.anytimeTradeOffer.from === currentUser.uid && roomState.anytimeTradeOffer.status !== 'pending' && window.isWaitingForReplyAnytime) {
                 window.isWaitingForReplyAnytime = false;
@@ -1387,7 +1300,7 @@
                     newLogs.push(`❌ ${targetPlayer.name} 拒絕了業權合約。`);
                     sfx.error(); showModal("💔 交易失敗", "<div class='p-5 text-center font-bold text-red-600 text-lg'>對方拒絕了合約或現金不足！</div>", [{text: '確認', style: 'bg-slate-800 w-full py-3'}]);
                 }
-                try{updateDoc(getRoomDoc(currentRoomId), { anytimeTradeOffer: null, logs: newLogs });}catch(e){}
+                try{update(getRoomRef(currentRoomId), { anytimeTradeOffer: null, logs: newLogs });}catch(e){}
             }
         };
 
@@ -1440,7 +1353,7 @@
 
                             sfx.cash();
                             try {
-                                await updateDoc(getRoomDoc(currentRoomId), { 
+                                await update(getRoomRef(currentRoomId), { 
                                     players, 
                                     properties: props, 
                                     buyoutOffer: { ...offer, status: 'accepted' } 
@@ -1448,14 +1361,14 @@
                             } catch(e) { console.error(e); }
                         } else {
                             try {
-                                await updateDoc(getRoomDoc(currentRoomId), { 
+                                await update(getRoomRef(currentRoomId), { 
                                     buyoutOffer: { ...offer, status: 'rejected' } 
                                 });
                             } catch(e) {}
                         }
                     } else {
                         try {
-                            await updateDoc(getRoomDoc(currentRoomId), { 
+                            await update(getRoomRef(currentRoomId), { 
                                 buyoutOffer: { ...offer, status: 'rejected' } 
                             });
                         } catch(e) {}
@@ -1480,7 +1393,7 @@
                     showModal("💔 收購失敗", "<div class='p-5 text-center font-bold text-red-600 text-lg'>對方堅決拒絕收購或您的帳戶可用現金餘額不足！</div>", [{text: '確認', style: 'bg-slate-800 w-full py-3'}]);
                 }
                 try {
-                    updateDoc(getRoomDoc(currentRoomId), { buyoutOffer: null, logs: newLogs });
+                    update(getRoomRef(currentRoomId), { buyoutOffer: null, logs: newLogs });
                 } catch(e) {}
             }
         };
@@ -1574,7 +1487,7 @@
             if (diff <= 0) {
                 document.getElementById('timer-text').innerText = "00:00";
                 if (roomState.hostId === currentUser.uid && !roomState.isFinished) {
-                    updateDoc(getRoomDoc(currentRoomId), { isFinished: true }).catch(e=>{});
+                    update(getRoomRef(currentRoomId), { isFinished: true }).catch(e=>{});
                 }
                 return;
             }
@@ -1785,7 +1698,7 @@
                     logs.push(`🌍 【經濟轉型】全球經濟進入『${nextCycle}』期。`);
                     
                     let desc = "";
-                    if (nextCycle === '繁營') desc = "政府宣佈大規模量化寬鬆，市場資金氾濫。市民消費力道強勁，整體企業利潤預計大幅上揚，推動地產與股市估值攀升！";
+                    if (nextCycle === '繁榮') desc = "政府宣佈大規模量化寬鬆，市場資金氾濫。市民消費力道強勁，整體企業利潤預計大幅上揚，推動地產與股市估值攀升！";
                     if (nextCycle === '復甦') desc = "經濟逐漸走出谷底，就業率穩步回升，市場氣氛轉趨樂觀，企業開始重新規劃資本擴張。";
                     if (nextCycle === '衰退') desc = "通膨高企導致央行收緊銀根，企業獲利指引全面下調，市場流動性開始枯竭，投資者應提高警覺。";
                     if (nextCycle === '蕭條') desc = "金融風暴席捲全球！大量企業面臨破產邊緣，失業率飆升，所有資產價格暴跌，銀行放貸極度保守。";
@@ -1827,7 +1740,7 @@
 
                 if (triggerEvent) updates.globalEvent = triggerEvent;
             }
-            try { await updateDoc(getRoomDoc(currentRoomId), updates); } catch(e) { console.error("回合更新失敗", e); }
+            try { await update(getRoomRef(currentRoomId), updates); } catch(e) { console.error("回合更新失敗", e); }
         };
 
         const checkAndFinalizeTurn = async (playerData, pIndex, logs) => {
@@ -1858,7 +1771,7 @@
                     await processEndOfTurnAndUpdate(playerData, pIndex, logs);
                 } else {
                     let players = [...roomState.players]; players[pIndex] = playerData;
-                    try { await updateDoc(getRoomDoc(currentRoomId), { players, logs }); } catch(e) {}
+                    try { await update(getRoomRef(currentRoomId), { players, logs }); } catch(e) {}
                 }
             }
         };
@@ -1898,14 +1811,14 @@
             const pIdx = roomState.turnIndex % roomState.players.length; let player = {...roomState.players[pIdx]};
             
             // 延長回合時限以防在動畫或結算途中被系統 Skip
-            try { await updateDoc(getRoomDoc(currentRoomId), { turnStartTime: Date.now() + 60000 }); } catch(e) {}
+            try { await update(getRoomRef(currentRoomId), { turnStartTime: Date.now() + 60000 }); } catch(e) {}
             
             let callLoanProb = 0.05;
             if (roomState.ecoCycle === '衰退') callLoanProb = 0.15;
             if (roomState.ecoCycle === '蕭條') callLoanProb = 0.30;
 
             if (player.loan > 0 && Math.random() < callLoanProb) { 
-                try { await updateDoc(getRoomDoc(currentRoomId), { callLoan: { uid: player.uid, amount: player.loan, status: 'pending' } }); } catch(e) { console.error(e); }
+                try { await update(getRoomRef(currentRoomId), { callLoan: { uid: player.uid, amount: player.loan, status: 'pending' } }); } catch(e) { console.error(e); }
                 return; 
             }
 
@@ -1920,7 +1833,7 @@
             for(let i = 1; i <= dice; i++) {
                 currentPos = (currentPos + 1) % 42;
                 let tempPlayers = [...roomState.players]; tempPlayers[pIdx] = {...player, pos: currentPos};
-                try { await updateDoc(getRoomDoc(currentRoomId), { players: tempPlayers }); } catch(e) {}
+                try { await update(getRoomRef(currentRoomId), { players: tempPlayers }); } catch(e) {}
                 await new Promise(r => setTimeout(r, 200)); 
             }
             player.pos = currentPos; let logs = [...roomState.logs];
@@ -1935,7 +1848,7 @@
 
             const tile = MAP_TILES[player.pos]; logs.push(`${player.name} 擲出 ${dice}，抵達【${tile.name}】。`);
             let tempPlayers = [...roomState.players]; tempPlayers[pIdx] = player;
-            try { await updateDoc(getRoomDoc(currentRoomId), { players: tempPlayers, logs: logs }); } catch(e) {}
+            try { await update(getRoomRef(currentRoomId), { players: tempPlayers, logs: logs }); } catch(e) {}
             setTimeout(() => handleTileAction(player, pIdx, tile, logs), 200);
         };
 
@@ -1975,7 +1888,7 @@
                     let canAfford = player.money >= currentPrice;
                     if (!canAfford) {
                         const loanRes = await promptQuickLoan(player, currentPrice);
-                        if (loanRes.success) { canAfford = true; logs.push(`🏦 ${player.name} 緊急向銀行貸款 $${loanRes.amt}。`); let pTemp = [...roomState.players]; pTemp[pIndex] = player; try{await updateDoc(getRoomDoc(currentRoomId), { players: pTemp, logs });}catch(e){} }
+                        if (loanRes.success) { canAfford = true; logs.push(`🏦 ${player.name} 緊急向銀行貸款 $${loanRes.amt}。`); let pTemp = [...roomState.players]; pTemp[pIndex] = player; try{await update(getRoomRef(currentRoomId), { players: pTemp, logs });}catch(e){} }
                     }
                     if (canAfford) {
                         const wantBuy = await showModal(`🏢 投資決策：${tile.name}`, 
@@ -1991,7 +1904,7 @@
                             if (await triggerBAFSQuestion()) {
                                 sfx.cash(); await showModal("🎉 收購成功", "<div class='text-center p-6 text-emerald-600 font-bold text-xl'>商業知識過關！成功購入企業。</div>");
                                 player.money -= currentPrice; let newProps = {...roomState.properties}; newProps[tile.id] = { owner: player.uid, level: 1, buyPrice: currentPrice, shares: { [player.uid]: 100 } };
-                                logs.push(`${player.name} 成功收購了 ${tile.name}。`); try{await updateDoc(getRoomDoc(currentRoomId), { properties: newProps });}catch(e){}
+                                logs.push(`${player.name} 成功收購了 ${tile.name}。`); try{await update(getRoomRef(currentRoomId), { properties: newProps });}catch(e){}
                             } else { sfx.error(); await showModal("❌ 收購失敗", "<div class='text-center p-6 text-red-600 font-bold text-xl'>回答錯誤或超時！銀行拒絕了你的申請。</div>"); }
                         }
                     } else { await showModal("⚠️ 資金不足", `<div class='p-5 text-center font-bold'>現金不足以購買 ${tile.name} (市值 $${currentPrice})。</div>`); }
@@ -2030,7 +1943,7 @@
                         });
                         updatedPlayers[pIndex].money -= totalPaid;
                         player.money -= totalPaid; 
-                        try{await updateDoc(getRoomDoc(currentRoomId), { players: updatedPlayers, logs: logs });}catch(e){}
+                        try{await update(getRoomRef(currentRoomId), { players: updatedPlayers, logs: logs });}catch(e){}
 
                         // 惡意收購 (如果未被壟斷且還有資金)
                         if (player.money >= 0) {
@@ -2053,11 +1966,11 @@
                                             let finalPriceCanAfford = price <= player.money;
                                             if(!finalPriceCanAfford) {
                                                 const lRes = await promptQuickLoan(player, price);
-                                                if(lRes.success) { finalPriceCanAfford = true; let pTemp = [...roomState.players]; pTemp[pIndex] = player; try{await updateDoc(getRoomDoc(currentRoomId), { players: pTemp, logs: [...roomState.logs, `🏦 ${player.name} 緊急貸款 $${lRes.amt} 準備收購。`] });}catch(e){} }
+                                                if(lRes.success) { finalPriceCanAfford = true; let pTemp = [...roomState.players]; pTemp[pIndex] = player; try{await update(getRoomRef(currentRoomId), { players: pTemp, logs: [...roomState.logs, `🏦 ${player.name} 緊急貸款 $${lRes.amt} 準備收購。`] });}catch(e){} }
                                             }
                                             if (finalPriceCanAfford && price > 0) {
                                                 window.isWaitingForReplyBuyout = true;
-                                                try{await updateDoc(getRoomDoc(currentRoomId), { buyoutOffer: { from: player.uid, to: ownerPlayer.uid, tileId: tile.id, price: price, shares: majorityShares, status: 'pending' } });}catch(e){}
+                                                try{await update(getRoomRef(currentRoomId), { buyoutOffer: { from: player.uid, to: ownerPlayer.uid, tileId: tile.id, price: price, shares: majorityShares, status: 'pending' } });}catch(e){}
                                                 showModal("⏳", "<div class='text-center p-8'><div class='text-6xl animate-bounce mb-4 text-blue-500'><i class='fa-solid fa-envelope'></i></div><div class='font-bold text-slate-600 text-xl'>等待對方回覆中...</div></div>", []);
                                                 return; // 交由 Observer 處理後續
                                             } else { await showModal("⚠️", "<div class='p-5 text-center font-bold'>資金不足或金額無效</div>"); }
@@ -2074,7 +1987,7 @@
                         let canAfford = player.money >= upgradeCost;
                         if (!canAfford) {
                             const loanRes = await promptQuickLoan(player, upgradeCost);
-                            if (loanRes.success) { canAfford = true; logs.push(`🏦 ${player.name} 緊急貸款 $${loanRes.amt} 升級。`); let pTemp = [...roomState.players]; pTemp[pIndex] = player; try{await updateDoc(getRoomDoc(currentRoomId), { players: pTemp, logs });}catch(e){} }
+                            if (loanRes.success) { canAfford = true; logs.push(`🏦 ${player.name} 緊急貸款 $${loanRes.amt} 升級。`); let pTemp = [...roomState.players]; pTemp[pIndex] = player; try{await update(getRoomRef(currentRoomId), { players: pTemp, logs });}catch(e){} }
                         }
                         if (canAfford) {
                             const wantUpgrade = await showModal(`🏗️ 擴充聯營企業：${tile.name}`, 
@@ -2093,7 +2006,7 @@
                                     let newProps = {...roomState.properties}; 
                                     newProps[tile.id].level = prop.level + 1; 
                                     logs.push(`${player.name} 斥資將 ${tile.name} 擴展至 Level ${prop.level + 1}。`); 
-                                    try{await updateDoc(getRoomDoc(currentRoomId), { properties: newProps });}catch(e){}
+                                    try{await update(getRoomRef(currentRoomId), { properties: newProps });}catch(e){}
                                     await showModal("🎉 升級成功", "<div class='text-center p-6 text-emerald-600 font-bold text-xl'>擴張計劃獲批！</div>");
                                 } else { sfx.error(); await showModal("❌ 升級失敗", "<div class='text-center p-6 text-red-600 font-bold text-xl'>回答錯誤或超時！</div>"); }
                             }
@@ -2138,7 +2051,7 @@
                     p.portfolio[sym].qty -= qty;
                     if(p.portfolio[sym].qty === 0) p.portfolio[sym].avg = 0;
                     sfx.cash();
-                    try { await updateDoc(getRoomDoc(currentRoomId), { players, logs: [...roomState.logs, `📉 ${p.name} 變賣 ${qty} 股 ${stockDef.name}，套現 $${rev}。`] }); } catch(e){}
+                    try { await update(getRoomRef(currentRoomId), { players, logs: [...roomState.logs, `📉 ${p.name} 變賣 ${qty} 股 ${stockDef.name}，套現 $${rev}。`] }); } catch(e){}
                     setTimeout(() => {
                         const latestP = roomState.players[pIdx];
                         const nav = latestP.money + getPropertyValue(latestP.uid) + getStockValue(latestP);
@@ -2159,7 +2072,7 @@
                     let pIdx = roomState.turnIndex % roomState.players.length; let players = [...roomState.players];
                     let repayAmt = Math.min(players[pIdx].money, players[pIdx].loan);
                     players[pIdx].money -= repayAmt; players[pIdx].loan -= repayAmt; sfx.cash();
-                    try{await updateDoc(getRoomDoc(currentRoomId), { players, logs: [...roomState.logs, `🏦 ${players[pIdx].name} 危機中償還了 $${repayAmt} 貸款。`] });}catch(e){}
+                    try{await update(getRoomRef(currentRoomId), { players, logs: [...roomState.logs, `🏦 ${players[pIdx].name} 危機中償還了 $${repayAmt} 貸款。`] });}catch(e){}
                     setTimeout(() => {
                         const latestP = roomState.players[pIdx];
                         const nav = latestP.money + getPropertyValue(latestP.uid) + getStockValue(latestP);
@@ -2206,7 +2119,7 @@
                 }
                 
                 sfx.cash();
-                try{await updateDoc(getRoomDoc(currentRoomId), { players, properties: props, logs: [...roomState.logs, `🏦 ${players[pIdx].name} 賣出企業套現 $${price}。`] });}catch(e){}
+                try{await update(getRoomRef(currentRoomId), { players, properties: props, logs: [...roomState.logs, `🏦 ${players[pIdx].name} 賣出企業套現 $${price}。`] });}catch(e){}
                 setTimeout(() => {
                     const latestP = roomState.players[pIdx];
                     const nav = latestP.money + getPropertyValue(latestP.uid) + getStockValue(latestP);
@@ -2254,9 +2167,9 @@
                 if (!currentUser) return showModal("⚠️ 錯誤", "尚未連線至伺服器！");
                 try {
                     const code = Math.floor(1000 + Math.random() * 9000).toString();
-                    const newRoomRef = doc(getRoomsCollection());
+                    const newRoomRef = push(ref(db, getRoomsPath()));
                     
-                    await setDoc(newRoomRef, {
+                    await set(newRoomRef, {
                         roomCode: code, state: 'waiting', hostId: currentUser.uid, turnIndex: 0,
                         ecoCycle: '復甦', interestRate: 10,
                         turnStartTime: Date.now(),
@@ -2270,7 +2183,7 @@
                         players: [createInitialPlayer(currentUser.uid, localPlayerName, 0)],
                         properties: {}, logs: ["遊戲房間已創建。"]
                     });
-                    currentRoomId = newRoomRef.id;
+                    currentRoomId = newRoomRef.key;
                     localStorage.setItem('bafsRoomId', currentRoomId);
                     listenToRoom(currentRoomId);
                 } catch (err) { showModal("❌ 創建失敗", err.message); }
@@ -2284,23 +2197,24 @@
                 msgEl.classList.add('hidden');
                 
                 try {
-                    const snapshot = await getDocs(getRoomsCollection());
+                    const snapshot = await get(ref(db, getRoomsPath()));
                     let targetRoomId = null, targetRoomData = null;
 
-                    snapshot.forEach(docSnap => {
-                        const data = docSnap.data();
-                        if (data.roomCode === code && data.state === 'waiting') {
-                            targetRoomId = docSnap.id;
-                            targetRoomData = data;
+                    if (snapshot.exists()) {
+                        const rooms = snapshot.val();
+                        for (const key in rooms) {
+                            if (rooms[key].roomCode === code && rooms[key].state === 'waiting') {
+                                targetRoomId = key; targetRoomData = rooms[key]; break;
+                            }
                         }
-                    });
+                    }
 
                     if (!targetRoomId) { msgEl.innerText = "找不到房間"; msgEl.classList.remove('hidden'); return; }
                     if (!targetRoomData.players) targetRoomData.players = [];
 
                     if (!targetRoomData.players.find(p => p.uid === currentUser.uid)) {
                         targetRoomData.players.push(createInitialPlayer(currentUser.uid, localPlayerName, targetRoomData.players.length));
-                        await updateDoc(getRoomDoc(targetRoomId), {
+                        await update(getRoomRef(targetRoomId), {
                             players: targetRoomData.players, logs: [...(targetRoomData.logs||[]), `${localPlayerName} 加入了房間！`]
                         });
                     }
@@ -2314,7 +2228,7 @@
                 if (roomState && roomState.hostId === currentUser.uid) {
                     const duration = parseInt(document.getElementById('input-duration').value) || 20;
                     const endTime = Date.now() + (duration * 60 * 1000);
-                    await updateDoc(getRoomDoc(currentRoomId), { 
+                    await update(getRoomRef(currentRoomId), { 
                         state: 'playing', 
                         duration: duration,
                         endTime: endTime,
