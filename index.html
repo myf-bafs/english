@@ -252,6 +252,11 @@
 
             <!-- 常駐銀行/股市分離按鈕區 -->
             <div class="fixed bottom-6 right-6 lg:bottom-10 lg:right-[400px] z-30 flex flex-col gap-3">
+                <button id="btn-acquisition-hub" onclick="window.openAcquisitionModal()" class="hidden bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-black p-3 md:p-4 rounded-full shadow-2xl hover:scale-105 active:scale-95 transition-transform flex items-center justify-center gap-2 border-2 border-white/50 relative">
+                    <span class="text-xl md:text-2xl drop-shadow">🤝</span>
+                    <span class="hidden md:inline">收購中心</span>
+                    <span id="acquisition-badge" class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-white shadow">!</span>
+                </button>
                 <button onclick="window.openStockModal()" class="bg-gradient-to-r from-rose-600 to-orange-600 text-white font-black p-3 md:p-4 rounded-full shadow-2xl hover:scale-105 active:scale-95 transition-transform flex items-center justify-center gap-2 border-2 border-white/50">
                     <span class="text-xl md:text-2xl drop-shadow">📈</span>
                     <span class="hidden md:inline">證券交易</span>
@@ -278,7 +283,7 @@
 
                 <div id="finance-panel-header" class="p-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center rounded-t-3xl lg:rounded-t-none">
                     <h3 class="font-black text-slate-800 flex items-center gap-2">📊 財務報表</h3>
-                    <span class="text-[10px] text-blue-600 font-bold bg-blue-100 px-2 py-1 rounded-full">點擊玩家查閱與交易</span>
+                    <span class="text-[10px] text-blue-600 font-bold bg-blue-100 px-2 py-1 rounded-full">點擊玩家 · 🤝 收購中心隨時要約</span>
                 </div>
                 
                 <div id="in-game-players" class="flex-1 overflow-y-auto p-3 space-y-3 bg-slate-100/50 custom-scrollbar"></div>
@@ -598,6 +603,25 @@
             return rent;
         };
 
+        const getPlayerPropertyIds = (uid) => Object.keys(roomState?.properties || {}).filter(k => {
+            const p = getPropData(k);
+            return p && p.owner === uid;
+        });
+
+        const getPendingAcquisitionOffer = () =>
+            (roomState?.anytimeTradeOffer?.status === 'pending') ? roomState.anytimeTradeOffer : null;
+
+        const updateAcquisitionHubButton = () => {
+            const btn = document.getElementById('btn-acquisition-hub');
+            const badge = document.getElementById('acquisition-badge');
+            if (!btn) return;
+            const inGame = roomState?.state === 'playing' && !roomState?.isFinished;
+            btn.classList.toggle('hidden', !inGame);
+            const offer = getPendingAcquisitionOffer();
+            const hasIncoming = offer && offer.to === currentUser?.uid;
+            if (badge) badge.classList.toggle('hidden', !hasIncoming);
+        };
+
         const showView = (viewId) => {
             ['view-login', 'view-lobby', 'view-waiting', 'view-game', 'view-report'].forEach(id => document.getElementById(id).classList.add('hidden'));
             document.getElementById(viewId).classList.remove('hidden');
@@ -710,6 +734,10 @@
             let totalVal = player.money;
             let html = `<div class="max-h-[60vh] overflow-y-auto space-y-3 pr-2 pb-4 pt-4 px-5 custom-scrollbar">`;
             
+
+            if (!isMe && !player.isBankrupt && getPlayerPropertyIds(uid).length > 0) {
+                html += `<button type="button" onclick="window.openAcquisitionModal('${uid}')" class="w-full mb-3 bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-black py-3 rounded-xl shadow-lg flex items-center justify-center gap-2"><i class="fa-solid fa-handshake"></i> 向 ${player.name} 提出收購要約</button>`;
+            }
             html += `
                 <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-2">
                     <div class="flex justify-between items-center"><span class="font-bold text-slate-600">💵 現金存款</span><span class="font-black text-lg font-mono ${player.money < 0 ? 'text-red-600' : 'text-emerald-600'}">$${player.money}</span></div>
@@ -1019,7 +1047,280 @@
             showModal(`<span class="flex items-center gap-2 text-xl font-black text-slate-800"><i class="fa-solid fa-file-contract text-blue-600"></i> 地契檔案</span>`, html, [{text: '關閉檔案', style: 'bg-slate-800 hover:bg-slate-700 w-full text-lg py-3 shadow-lg'}]);
         };
 
-        // 隨時收購/出售邏輯
+        // 隨時收購要約
+        window.cancelAcquisitionOffer = async () => {
+            const offer = getPendingAcquisitionOffer();
+            if (!offer || offer.from !== currentUser.uid) return;
+            const tile = MAP_TILES.find(t => t.id === parseInt(offer.tileId));
+            const target = roomState.players.find(p => p.uid === offer.to);
+            const logs = [...roomState.logs, `↩️ ${localPlayerName} 撤回了對 ${target?.name || '玩家'} 的${offer.type === 'buy' ? '收購' : '出售'}要約${tile ? `（${tile.name}）` : ''}。`];
+            window.isWaitingForReplyAnytime = false;
+            try {
+                await update(getRoomRef(currentRoomId), { anytimeTradeOffer: null, logs });
+                sfx.success();
+            } catch (e) { console.error(e); }
+            if (window.currentModal === 'acquisition') window.openAcquisitionModal();
+        };
+
+        const submitAcquisitionOffer = async (tileId, targetUid, actionType, price) => {
+            const tile = MAP_TILES.find(t => t.id === tileId);
+            if (!tile || tile.type !== 'property') return { ok: false, msg: '無效物業' };
+
+            const meIdx = roomState.players.findIndex(p => p.uid === currentUser.uid);
+            if (meIdx === -1) return { ok: false, msg: '尚未加入遊戲' };
+            let me = { ...roomState.players[meIdx] };
+            if (me.isBankrupt) return { ok: false, msg: '破產狀態無法交易' };
+
+            if (getPendingAcquisitionOffer()) return { ok: false, msg: '你已有待回覆的要約，請先撤回或等待對方回應。' };
+
+            const prop = getPropData(tileId);
+            let finalTargetUid = targetUid;
+            if (actionType === 'buy') {
+                if (!prop) return { ok: false, msg: '該物業未被收購。' };
+                finalTargetUid = prop.owner;
+                if (finalTargetUid === me.uid) return { ok: false, msg: '這是你自己的物業。' };
+                if (checkMonopoly(tileId)) return { ok: false, msg: '對方已壟斷該色組，無法收購。' };
+            } else {
+                if (!prop || prop.owner !== me.uid) return { ok: false, msg: '你並非該物業業主。' };
+                if (!finalTargetUid) return { ok: false, msg: '請選擇買家。' };
+            }
+
+            const targetPlayer = roomState.players.find(p => p.uid === finalTargetUid);
+            if (!targetPlayer || targetPlayer.isBankrupt) return { ok: false, msg: '對方無法交易。' };
+            if (!price || price <= 0) return { ok: false, msg: '請輸入有效金額。' };
+
+            if (actionType === 'buy' && price > me.money) {
+                const loanRes = await promptQuickLoan(me, price);
+                if (!loanRes.success) return { ok: false, msg: '資金不足' };
+                me = roomState.players[meIdx];
+                const players = [...roomState.players];
+                players[meIdx] = me;
+                try {
+                    await update(getRoomRef(currentRoomId), {
+                        players,
+                        logs: [...roomState.logs, `🏦 ${me.name} 緊急貸款 $${loanRes.amt} 準備收購。`]
+                    });
+                } catch (e) { console.error(e); }
+            }
+
+            window.isWaitingForReplyAnytime = true;
+            const logs = [...roomState.logs,
+                actionType === 'buy'
+                    ? `📨 ${me.name} 向 ${targetPlayer.name} 提出收購【${tile.name}】$${price}，等待回覆…`
+                    : `📨 ${me.name} 向 ${targetPlayer.name} 發售【${tile.name}】$${price}，等待回覆…`
+            ];
+            try {
+                await update(getRoomRef(currentRoomId), {
+                    anytimeTradeOffer: {
+                        type: actionType, from: me.uid, to: finalTargetUid,
+                        tileId: tile.id, price, status: 'pending', createdAt: Date.now()
+                    },
+                    logs
+                });
+                sfx.success();
+                return { ok: true };
+            } catch (e) {
+                console.error(e);
+                return { ok: false, msg: '送出失敗' };
+            }
+        };
+
+        window.respondAcquisitionOffer = async (accept) => {
+            const offer = getPendingAcquisitionOffer();
+            if (!offer || offer.to !== currentUser.uid) return;
+
+            document.getElementById('global-modal').classList.add('hidden');
+            const sender = roomState.players.find(p => p.uid === offer.from);
+            const tile = MAP_TILES.find(t => t.id === parseInt(offer.tileId));
+
+            if (!accept) {
+                try {
+                    await update(getRoomRef(currentRoomId), {
+                        anytimeTradeOffer: { ...offer, status: 'rejected' },
+                        logs: [...roomState.logs, `❌ ${localPlayerName} 拒絕了 ${sender?.name} 的${offer.type === 'buy' ? '收購' : '出售'}要約（${tile?.name || '物業'}）。`]
+                    });
+                } catch (e) { console.error(e); }
+                sfx.error();
+                return;
+            }
+
+            const prop = getPropData(tile.id);
+            const propValid = offer.type === 'buy'
+                ? (prop && prop.owner === currentUser.uid)
+                : (prop && prop.owner === sender.uid);
+
+            if (!propValid) {
+                try {
+                    await update(getRoomRef(currentRoomId), {
+                        anytimeTradeOffer: { ...offer, status: 'rejected' },
+                        logs: [...roomState.logs, `⚠️ ${tile?.name || '物業'} 業權已變，要約作廢。`]
+                    });
+                } catch (e) { console.error(e); }
+                sfx.error();
+                await showModal("⚠️ 要約失效", "<div class='p-5 text-center font-bold'>物業業權已變更。</div>");
+                return;
+            }
+
+            let players = [...roomState.players];
+            const meIdx = players.findIndex(p => p.uid === currentUser.uid);
+            const senderIdx = players.findIndex(p => p.uid === sender.uid);
+
+            if (offer.type === 'buy') {
+                if (players[senderIdx].money < offer.price) {
+                    try { await update(getRoomRef(currentRoomId), { anytimeTradeOffer: { ...offer, status: 'rejected' } }); } catch (e) {}
+                    sfx.error();
+                    await showModal("💸 對方資金不足", "<div class='p-5 text-center font-bold'>買家現金不足。</div>");
+                    return;
+                }
+                players[senderIdx].money -= offer.price;
+                players[meIdx].money += offer.price;
+                const props = { ...roomState.properties };
+                props[tile.id] = { owner: sender.uid, level: prop.level || 1, buyPrice: offer.price };
+                sfx.cash();
+                try {
+                    await update(getRoomRef(currentRoomId), {
+                        players, properties: props,
+                        anytimeTradeOffer: { ...offer, status: 'accepted' },
+                        logs: [...roomState.logs, `✅ ${sender.name} 以 $${offer.price} 收購 ${tile.name}（${localPlayerName} 同意）。`]
+                    });
+                } catch (e) { console.error(e); }
+            } else {
+                if (players[meIdx].money < offer.price) {
+                    sfx.error();
+                    alert("你的現金不足！");
+                    try { await update(getRoomRef(currentRoomId), { anytimeTradeOffer: { ...offer, status: 'rejected' } }); } catch (e) {}
+                    return;
+                }
+                players[meIdx].money -= offer.price;
+                players[senderIdx].money += offer.price;
+                const props = { ...roomState.properties };
+                props[tile.id] = { owner: currentUser.uid, level: prop.level || 1, buyPrice: offer.price };
+                sfx.cash();
+                try {
+                    await update(getRoomRef(currentRoomId), {
+                        players, properties: props,
+                        anytimeTradeOffer: { ...offer, status: 'accepted' },
+                        logs: [...roomState.logs, `✅ ${localPlayerName} 以 $${offer.price} 購入 ${tile.name}（${sender.name} 同意出售）。`]
+                    });
+                } catch (e) { console.error(e); }
+            }
+        };
+
+        window.refreshAcquisitionForm = () => {
+            const targetUid = document.getElementById('acq-target-uid')?.value;
+            const actionType = document.getElementById('acq-action-type')?.value || 'buy';
+            const propSelect = document.getElementById('acq-tile-id');
+            const priceInput = document.getElementById('acq-offer-price');
+            if (!propSelect || !targetUid) return;
+            const ownerUid = actionType === 'buy' ? targetUid : currentUser.uid;
+            const ids = getPlayerPropertyIds(ownerUid);
+            propSelect.innerHTML = ids.length === 0
+                ? '<option value="">— 暫無物業 —</option>'
+                : ids.map(id => {
+                    const t = MAP_TILES.find(x => x.id === parseInt(id));
+                    return `<option value="${id}">${t.name} · $${getCurrentPrice(t)}</option>`;
+                }).join('');
+            if (ids.length > 0 && priceInput) {
+                priceInput.value = getCurrentPrice(MAP_TILES.find(x => x.id === parseInt(ids[0])));
+            }
+        };
+
+        window.openAcquisitionModal = (preselectedTargetUid = null) => {
+            window.currentModal = 'acquisition';
+            const me = roomState?.players?.find(p => p.uid === currentUser.uid);
+            if (!me || me.isBankrupt) {
+                alert("破產狀態無法使用收購中心！");
+                window.currentModal = null;
+                return;
+            }
+
+            const pending = getPendingAcquisitionOffer();
+            let html = `<div class="px-2 pt-4 pb-2 space-y-4 max-h-[65vh] overflow-y-auto custom-scrollbar">`;
+
+            if (pending) {
+                const tile = MAP_TILES.find(t => t.id === parseInt(pending.tileId));
+                const other = roomState.players.find(p => p.uid === (pending.from === currentUser.uid ? pending.to : pending.from));
+                const isSender = pending.from === currentUser.uid;
+                const typeLabel = pending.type === 'buy' ? '收購' : '出售';
+                html += `
+                    <div class="bg-amber-50 border-2 border-amber-200 rounded-2xl p-4">
+                        <p class="text-xs font-black text-amber-700 mb-2">${isSender ? '⏳ 已送出要約' : '📬 待你回覆'}</p>
+                        <p class="font-bold text-slate-800 text-sm mb-1">${isSender ? `你向 <b>${other?.name}</b> ${typeLabel}` : `<b>${other?.name}</b> 向你${typeLabel}`} <b>【${tile?.name}】</b></p>
+                        <p class="text-3xl font-black text-blue-700 font-mono mb-3">$${pending.price}</p>
+                        <div class="flex gap-2">
+                            ${!isSender ? `
+                                <button type="button" onclick="window.respondAcquisitionOffer(true)" class="flex-1 bg-emerald-600 text-white font-bold py-2.5 rounded-xl">同意</button>
+                                <button type="button" onclick="window.respondAcquisitionOffer(false)" class="flex-1 bg-red-500 text-white font-bold py-2.5 rounded-xl">拒絕</button>
+                            ` : `<button type="button" onclick="window.cancelAcquisitionOffer()" class="w-full bg-slate-600 text-white font-bold py-2.5 rounded-xl">撤回要約</button>`}
+                        </div>
+                    </div>`;
+            }
+
+            const others = roomState.players.filter(p => p.uid !== currentUser.uid && !p.isBankrupt);
+            if (!pending) {
+                html += `<p class="font-black text-slate-700"><i class="fa-solid fa-paper-plane text-emerald-600"></i> 發起收購要約</p>`;
+                if (others.length === 0) {
+                    html += `<p class="text-center text-slate-400 font-bold py-4">暫無可交易對手</p>`;
+                } else {
+                    const selectedUid = preselectedTargetUid || others[0].uid;
+                    const playerOpts = others.map(p =>
+                        `<option value="${p.uid}" ${p.uid === selectedUid ? 'selected' : ''}>${p.name}（${getPlayerPropertyIds(p.uid).length} 物業）</option>`
+                    ).join('');
+                    const firstProps = getPlayerPropertyIds(selectedUid);
+                    const firstTile = firstProps[0] || '';
+                    const propOpts = firstProps.length === 0
+                        ? '<option value="">— 暫無物業 —</option>'
+                        : firstProps.map(id => {
+                            const t = MAP_TILES.find(x => x.id === parseInt(id));
+                            return `<option value="${id}">${t.name} · $${getCurrentPrice(t)}</option>`;
+                        }).join('');
+                    const defaultPrice = firstTile !== '' ? getCurrentPrice(MAP_TILES.find(t => t.id === parseInt(firstTile))) : 1000;
+
+                    html += `
+                        <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3">
+                            <div><label class="text-xs font-bold text-slate-500">交易對象</label>
+                            <select id="acq-target-uid" onchange="window.refreshAcquisitionForm()" class="w-full mt-1 p-3 border-2 rounded-xl font-bold bg-white">${playerOpts}</select></div>
+                            <div><label class="text-xs font-bold text-slate-500">要約類型</label>
+                            <select id="acq-action-type" onchange="window.refreshAcquisitionForm()" class="w-full mt-1 p-3 border-2 rounded-xl font-bold bg-white">
+                                <option value="buy">向對方收購物業</option>
+                                <option value="sell">向對方出售我的物業</option>
+                            </select></div>
+                            <div><label class="text-xs font-bold text-slate-500">標的物業</label>
+                            <select id="acq-tile-id" class="w-full mt-1 p-3 border-2 rounded-xl font-bold bg-white">${propOpts}</select></div>
+                            <div><label class="text-xs font-bold text-slate-500">出價</label>
+                            <input type="number" id="acq-offer-price" min="1" value="${defaultPrice}" class="w-full mt-1 p-3 border-2 rounded-xl text-2xl font-black text-center font-mono bg-white"></div>
+                            <p class="text-[10px] text-slate-500 text-center font-bold">對方可同意或拒絕 · 等候期間仍可擲骰</p>
+                        </div>`;
+                }
+            }
+            html += `</div>`;
+
+            const buttons = pending
+                ? [{ text: '關閉', style: 'bg-slate-700 w-full py-3', resolveWith: true }]
+                : [
+                    { text: '送出要約', style: 'bg-emerald-600 w-full py-3', resolveWith: 'send' },
+                    { text: '取消', style: 'bg-slate-400 w-full mt-2 py-3', resolveWith: false }
+                ];
+
+            showModal(`<span class="flex items-center gap-2"><i class="fa-solid fa-handshake text-emerald-600"></i> 收購交易中心</span>`, html, buttons, '480px')
+                .then(async (res) => {
+                    if (res !== 'send') { window.currentModal = null; return; }
+                    const tileId = parseInt(document.getElementById('acq-tile-id')?.value);
+                    const targetUid = document.getElementById('acq-target-uid')?.value;
+                    const actionType = document.getElementById('acq-action-type')?.value || 'buy';
+                    const price = parseInt(document.getElementById('acq-offer-price')?.value);
+                    const result = await submitAcquisitionOffer(tileId, targetUid, actionType, price);
+                    if (result.ok) {
+                        await showModal("📨 已送出", "<div class='p-6 text-center font-bold text-emerald-700'>等待對方回覆，可於收購中心查看或撤回。</div>", [{ text: '知道了', style: 'bg-slate-800 w-full py-3' }]);
+                        window.openAcquisitionModal();
+                    } else {
+                        sfx.error();
+                        await showModal("⚠️", `<div class='p-5 text-center font-bold'>${result.msg}</div>`);
+                        window.openAcquisitionModal(preselectedTargetUid);
+                    }
+                });
+        };
+
         window.initiateTradeAnytime = async (tileId, targetUid, actionType) => {
             document.getElementById('global-modal').classList.add('hidden'); 
             const tile = MAP_TILES.find(t => t.id === tileId);
@@ -1066,71 +1367,40 @@
                 {text: '取消', style: 'bg-slate-400 hover:bg-slate-500 w-full mt-2 py-3', resolveWith: 'cancel'}
             ]);
 
-            if (sendOffer === 'send') {
-                const price = parseInt(document.getElementById('anytime-offer-price').value);
-                let finalTargetUid = actionType === 'buy' ? getPropData(tileId).owner : document.getElementById('anytime-target-uid').value;
-                
-                if (actionType === 'buy' && price > me.money) {
-                    const loanRes = await promptQuickLoan(me, price);
-                    if (loanRes.success) {
-                        let players = [...roomState.players]; players[roomState.players.findIndex(p=>p.uid===me.uid)] = me;
-                        try { await update(getRoomRef(currentRoomId), { players, logs: [...roomState.logs, `🏦 ${me.name} 緊急貸款 $${loanRes.amt} 準備收購。`] }); } catch(e){}
-                    } else { return; }
-                }
-
-                if (price > 0) {
-                    window.isWaitingForReplyAnytime = true;
-                    try { await update(getRoomRef(currentRoomId), { anytimeTradeOffer: { type: actionType, from: me.uid, to: finalTargetUid, tileId: tile.id, price: price, status: 'pending' } }); } catch(e){}
-                    showModal("⏳", "<div class='text-center p-6'><div class='text-5xl animate-bounce mb-4'><i class='fa-solid fa-envelope text-blue-500'></i></div><div class='font-bold text-slate-600 text-lg'>等待對方回覆中...</div></div>", []);
-                } else { sfx.error(); await showModal("⚠️", "<div class='p-5 text-center font-bold'>無效金額</div>"); }
+            if (sendOffer !== 'send') return;
+            const price = parseInt(document.getElementById('anytime-offer-price').value);
+            const finalTargetUid = actionType === 'buy' ? getPropData(tileId)?.owner : document.getElementById('anytime-target-uid')?.value;
+            const result = await submitAcquisitionOffer(tileId, finalTargetUid, actionType, price);
+            if (result.ok) {
+                await showModal("📨 要約已送出", "<div class='p-6 text-center font-bold text-emerald-700'>等待對方回覆，對方可同意或拒絕。</div>", [{ text: '知道了', style: 'bg-slate-800 w-full py-3' }]);
+            } else {
+                sfx.error();
+                await showModal("⚠️", `<div class='p-5 text-center font-bold'>${result.msg}</div>`);
             }
         };
-
         const handleAnytimeTradeObserver = () => {
             if (roomState && roomState.anytimeTradeOffer && roomState.anytimeTradeOffer.status === 'pending' && roomState.anytimeTradeOffer.to === currentUser.uid && !window.isNegotiatingAnytime) {
                 window.isNegotiatingAnytime = true; sfx.alert();
                 const offer = roomState.anytimeTradeOffer; const sender = roomState.players.find(p => p.uid === offer.from);
                 const tile = MAP_TILES.find(t => t.id === parseInt(offer.tileId));
                 
-                let title = offer.type === 'buy' ? "收到收購邀請" : "收到出售邀請";
-                let desc = offer.type === 'buy' ? `想向你收購 <b>【${tile.name}】</b>` : `想向你出售 <b>【${tile.name}】</b>`;
+                const title = offer.type === 'buy' ? "📬 收到收購要約" : "📬 收到出售要約";
+                const desc = offer.type === 'buy'
+                    ? `想向你收購 <b>【${tile.name}】</b>`
+                    : `想向你出售 <b>【${tile.name}】</b>`;
 
                 showModal(`🤝 ${title}`, `
                     <div class="text-center space-y-4 my-4 p-4 border border-slate-200 rounded-2xl bg-slate-50">
                         <p class="text-lg text-slate-700"><b>${sender.name}</b> ${desc}</p>
-                        <div class="bg-white py-2 rounded-xl border border-slate-200 shadow-sm">
-                            <span class="text-xs font-bold text-slate-500 uppercase tracking-wider block">該地段最新市值估價</span>
-                            <span class="text-xl font-bold text-slate-700 font-mono">$${getCurrentPrice(tile)}</span>
-                        </div>
-                        <div class="bg-blue-50 py-4 rounded-xl border-2 border-blue-200 shadow-inner mt-2">
-                            <span class="text-sm font-bold text-blue-500 uppercase tracking-wider block mb-1">對方出價</span>
-                            <span class="text-4xl font-black text-blue-700 font-mono">$${offer.price}</span>
-                        </div>
+                        <p class="text-sm text-slate-500">市值 <span class="font-mono font-bold">$${getCurrentPrice(tile)}</span></p>
+                        <p class="text-4xl font-black text-blue-700 font-mono">$${offer.price}</p>
+                        <p class="text-xs text-slate-400">亦可於右下角「收購中心」處理</p>
                     </div>`, [
-                    {text: '同意交易', style: 'bg-emerald-600 w-full py-3', resolveWith: 'accept'}, {text: '堅拒', style: 'bg-red-500 w-full mt-2 py-3', resolveWith: 'reject'}
+                    { text: '同意', style: 'bg-emerald-600 w-full py-3', resolveWith: 'accept' },
+                    { text: '拒絕', style: 'bg-red-500 w-full mt-2 py-3', resolveWith: 'reject' }
                 ]).then(async (res) => {
                     window.isNegotiatingAnytime = false;
-                    if (res === 'accept') {
-                        let players = [...roomState.players];
-                        let meIdx = players.findIndex(p=>p.uid===currentUser.uid); let senderIdx = players.findIndex(p=>p.uid===sender.uid);
-                        
-                        if (offer.type === 'buy') {
-                            if(players[senderIdx].money >= offer.price) {
-                                players[senderIdx].money -= offer.price; players[meIdx].money += offer.price;
-                                let props = {...roomState.properties}; props[tile.id] = { owner: sender.uid, level: getPropData(tile.id).level || 1, buyPrice: offer.price };
-                                sfx.cash(); try{ await update(getRoomRef(currentRoomId), { players, properties: props, anytimeTradeOffer: { ...offer, status: 'accepted' } }); } catch(e){}
-                            } else { try{await update(getRoomRef(currentRoomId), { anytimeTradeOffer: { ...offer, status: 'rejected' } });}catch(e){} }
-                        } else {
-                            if(players[meIdx].money >= offer.price) {
-                                players[meIdx].money -= offer.price; players[senderIdx].money += offer.price;
-                                let props = {...roomState.properties}; props[tile.id] = { owner: currentUser.uid, level: getPropData(tile.id).level || 1, buyPrice: offer.price };
-                                sfx.cash(); try{await update(getRoomRef(currentRoomId), { players, properties: props, anytimeTradeOffer: { ...offer, status: 'accepted' } });}catch(e){}
-                            } else {
-                                sfx.error(); alert("你的現金不足！");
-                                try{await update(getRoomRef(currentRoomId), { anytimeTradeOffer: { ...offer, status: 'rejected' } });}catch(e){}
-                            }
-                        }
-                    } else { try{await update(getRoomRef(currentRoomId), { anytimeTradeOffer: { ...offer, status: 'rejected' } });}catch(e){} }
+                    await window.respondAcquisitionOffer(res === 'accept');
                 });
             } else if (roomState && roomState.anytimeTradeOffer && roomState.anytimeTradeOffer.from === currentUser.uid && roomState.anytimeTradeOffer.status !== 'pending' && window.isWaitingForReplyAnytime) {
                 window.isWaitingForReplyAnytime = false;
@@ -1273,6 +1543,7 @@
                 if (roomState.hostId === currentUser.uid) document.getElementById('host-panel').classList.remove('hidden');
 
                 updateTimerDisplay();
+                updateAcquisitionHubButton();
                 renderBoard();
                 renderPlayers();
                 renderLogs();
@@ -1287,6 +1558,8 @@
                     window.openBankModal();
                 } else if (window.currentModal === 'stock') {
                     window.openStockModal();
+                } else if (window.currentModal === 'acquisition') {
+                    window.openAcquisitionModal();
                 }
             }
         };
@@ -1424,6 +1697,11 @@
                 let hasIns = p.insurances && (p.insurances.tax || p.insurances.accident || p.insurances.comprehensive);
                 if(hasIns) icons += `<span class="bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded shadow-sm font-bold"><i class="fa-solid fa-shield-halved"></i> 保險</span>`;
 
+                const pendingOffer = getPendingAcquisitionOffer();
+                if (pendingOffer && pendingOffer.to === currentUser.uid && pendingOffer.from === p.uid) {
+                    icons += `<span class="bg-amber-200 text-amber-900 px-1.5 py-0.5 rounded shadow-sm font-bold animate-pulse">📬 收購要約</span>`;
+                }
+
                 container.innerHTML += `
                     <div class="rounded-2xl p-3 flex items-center gap-3 ${turnStyle} ${bankruptStyle} transition-all duration-300" onclick="window.showPlayerAssets('${p.uid}')">
                         <div class="w-12 h-12 rounded-full shadow-inner border-4 flex items-center justify-center text-2xl bg-slate-50 flex-shrink-0" style="border-color: ${p.color}">
@@ -1474,9 +1752,8 @@
                     indicator.className = "font-bold text-sm text-blue-600 bg-blue-100 px-6 py-2 rounded-full animate-pulse";
                     btnRoll.classList.add('hidden');
                 } else if (roomState.anytimeTradeOffer && roomState.anytimeTradeOffer.from === currentUser.uid && roomState.anytimeTradeOffer.status === 'pending') {
-                    indicator.innerText = "⏳ 等待收購回覆...";
-                    indicator.className = "font-bold text-sm text-blue-600 bg-blue-100 px-6 py-2 rounded-full animate-pulse";
-                    btnRoll.classList.add('hidden');
+                    indicator.innerText = "⏳ 收購要約等候回覆（可繼續擲骰）";
+                    indicator.className = "font-bold text-xs text-blue-600 bg-blue-100 px-4 py-2 rounded-full";
                 } else if (roomState.callLoan && roomState.callLoan.uid === currentUser.uid && roomState.callLoan.status === 'pending') {
                     indicator.innerText = "⚠️ 銀行強制要求還款！";
                     indicator.className = "font-black text-base text-white bg-indigo-600 px-6 py-2 rounded-full shadow-lg animate-bounce";
