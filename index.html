@@ -200,8 +200,7 @@
                     <h3 class="font-bold text-slate-600">與會董事</h3>
                     <span class="bg-slate-200 text-slate-600 text-xs font-bold px-2 py-1 rounded-full">已加入: <span id="player-count">0</span> 人</span>
                 </div>
-                <!-- 解決等待室人數過多時按鈕消失的問題 -->
-                <ul id="waiting-player-list" class="text-left mb-8 space-y-3 min-h-[120px] max-h-[30vh] overflow-y-auto custom-scrollbar pr-2"></ul>
+                <ul id="waiting-player-list" class="text-left mb-8 space-y-3 min-h-[120px]"></ul>
                 <button id="btn-start-game" class="w-full bg-emerald-500 hover:bg-emerald-400 text-white font-black py-4 rounded-xl shadow-lg transition-transform active:scale-95 text-lg hidden">🚀 正式開盤</button>
                 <p id="waiting-msg" class="text-slate-500 font-bold mt-2 animate-pulse">等待房主敲響開市鐘...</p>
             </div>
@@ -232,14 +231,7 @@
                         <div class="w-full max-w-[150px] md:max-w-[200px] h-[2px] bg-slate-300 my-1 md:my-3"></div>
                         
                         <div id="dice-display" class="text-6xl md:text-7xl my-2 drop-shadow-xl filter">🎲</div>
-                        
-                        <!-- 新增的計時器與狀態列 -->
-                        <div class="flex items-center justify-center gap-2 mb-2 w-full">
-                            <div id="turn-indicator" class="font-bold text-sm md:text-lg text-blue-600 bg-blue-50 px-5 py-1.5 rounded-full shadow-sm">等待開始...</div>
-                            <div id="turn-timer-badge" class="bg-red-100 text-red-700 font-bold px-3 py-1.5 rounded-full font-mono shadow-sm hidden border border-red-200 transition-colors text-sm md:text-base">
-                                ⏳ <span id="turn-timer-text">45</span>s
-                            </div>
-                        </div>
+                        <div id="turn-indicator" class="font-bold text-sm md:text-lg text-blue-600 bg-blue-50 px-5 py-1.5 rounded-full shadow-sm mb-2">等待開始...</div>
                         
                         <div class="flex gap-2 mt-2">
                             <button id="btn-roll" class="bg-gradient-to-b from-red-500 to-red-700 hover:from-red-400 hover:to-red-600 border-b-4 border-red-900 text-white font-black py-2.5 px-8 rounded-full shadow-lg transition-all active:translate-y-1 active:border-b-0 hidden text-base md:text-xl">
@@ -312,90 +304,6 @@
                 </div>
                 <div class="p-6 bg-white text-center border-t border-slate-200">
                     <button onclick="window.quitGame()" class="bg-slate-800 text-white px-10 py-3 rounded-full font-black text-lg shadow-lg hover:bg-slate-700 hover:-translate-y-1 transition-all active:scale-95">返回大廳</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- 視圖 6: 獨立全球金融中心頁面 -->
-        <div id="view-stock-market" class="absolute inset-0 bg-slate-100 z-[40] flex-col hidden overflow-hidden shadow-2xl">
-            <!-- Top bar -->
-            <header class="bg-indigo-900 text-white p-3 md:p-4 shadow-md flex justify-between items-center shrink-0 border-b-4 border-indigo-700">
-                <div class="flex items-center gap-3">
-                    <i class="fa-solid fa-building-columns text-2xl md:text-3xl text-indigo-300 drop-shadow"></i>
-                    <div>
-                        <h2 class="font-black text-lg md:text-xl leading-tight">全球金融中心</h2>
-                        <p class="text-[10px] md:text-xs text-indigo-300 font-bold tracking-widest uppercase">Global Financial Center</p>
-                    </div>
-                </div>
-                <button onclick="window.closeStockMarket()" class="bg-indigo-800 hover:bg-indigo-600 px-4 md:px-6 py-2 md:py-2.5 rounded-full font-black shadow-inner transition-colors border border-indigo-500 flex items-center gap-2 text-sm md:text-base">
-                    <i class="fa-solid fa-arrow-right-from-bracket"></i> 返回商界
-                </button>
-            </header>
-            
-            <!-- Content -->
-            <div class="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar space-y-6">
-                <!-- 財務概況 Dashboard -->
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
-                        <div class="text-xs text-slate-500 font-bold uppercase tracking-wider mb-1"><i class="fa-solid fa-wallet text-emerald-500"></i> 可用現金</div>
-                        <div id="sm-cash" class="text-2xl md:text-3xl font-black text-emerald-600 font-mono tracking-tight">$0</div>
-                    </div>
-                    <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
-                        <div class="text-xs text-slate-500 font-bold uppercase tracking-wider mb-1"><i class="fa-solid fa-credit-card text-rose-500"></i> 當前欠款</div>
-                        <div id="sm-loan" class="text-2xl md:text-3xl font-black text-rose-600 font-mono tracking-tight">$0</div>
-                    </div>
-                    <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
-                        <div class="text-xs text-slate-500 font-bold uppercase tracking-wider mb-1"><i class="fa-solid fa-chart-pie text-blue-500"></i> 資產淨值(NAV)</div>
-                        <div id="sm-nav" class="text-2xl md:text-3xl font-black text-blue-600 font-mono tracking-tight">$0</div>
-                    </div>
-                    <div class="bg-indigo-50 p-4 rounded-2xl shadow-sm border border-indigo-200 flex flex-col justify-between">
-                        <div class="text-xs text-indigo-600 font-bold uppercase tracking-wider mb-1"><i class="fa-solid fa-scale-balanced text-indigo-500"></i> 最高信貸額度</div>
-                        <div class="flex justify-between items-end">
-                            <span id="sm-max-borrow" class="text-2xl md:text-3xl font-black text-indigo-700 font-mono tracking-tight">$0</span>
-                            <span id="sm-ratio" class="text-xs font-bold bg-indigo-200 text-indigo-800 px-2 py-0.5 rounded font-mono border border-indigo-300">∞</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
-                    <!-- 股票清單 -->
-                    <div class="xl:col-span-2 space-y-4 bg-white p-5 rounded-3xl border border-slate-200 shadow-sm">
-                        <h3 class="font-black text-slate-800 text-xl flex items-center gap-2 mb-2"><i class="fa-solid fa-arrow-trend-up text-blue-600"></i> 實時證券交易板塊</h3>
-                        <div id="sm-stocks-container" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <!-- 透過 JS 動態生成，不再被覆蓋 -->
-                        </div>
-                    </div>
-
-                    <!-- 銀行與保險 -->
-                    <div class="space-y-6">
-                        <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
-                            <h3 class="font-black text-slate-800 text-lg flex items-center gap-2 mb-4"><i class="fa-solid fa-hand-holding-dollar text-emerald-600"></i> 銀行融資服務</h3>
-                            <p class="text-xs text-slate-500 mb-3 font-bold">當前市場借貸利率: <span id="sm-rate" class="text-indigo-600 font-mono font-black text-sm bg-indigo-50 px-2 py-0.5 rounded">10%</span></p>
-                            <div class="flex items-center gap-2 bg-slate-50 p-2 rounded-xl border border-slate-300 mb-4 shadow-inner">
-                                <span class="pl-3 font-bold text-slate-400 text-lg">$</span>
-                                <input type="number" id="sm-loan-amt" value="1000" step="100" class="w-full p-2 text-center text-xl font-black text-indigo-700 focus:outline-none bg-transparent font-mono custom-scrollbar">
-                            </div>
-                            <div class="grid grid-cols-2 gap-3">
-                                <button onclick="window.financeAction('borrow', null)" class="bg-indigo-600 hover:bg-indigo-500 text-white py-4 rounded-xl font-black shadow-md transition-transform active:scale-95 text-sm md:text-base border-b-4 border-indigo-800 active:border-b-0">借入資金</button>
-                                <button onclick="window.financeAction('repay', null)" id="sm-btn-repay" class="bg-slate-700 hover:bg-slate-600 text-white py-4 rounded-xl font-black shadow-md transition-transform active:scale-95 text-sm md:text-base border-b-4 border-slate-900 active:border-b-0">償還欠款</button>
-                            </div>
-                        </div>
-
-                        <div class="bg-emerald-50 p-6 rounded-3xl shadow-sm border border-emerald-200">
-                            <h3 class="font-black text-emerald-900 text-lg flex items-center gap-2 mb-4"><i class="fa-solid fa-shield-halved text-emerald-600"></i> 商業風險保險</h3>
-                            <div class="space-y-3">
-                                <button id="sm-ins-tax" onclick="window.financeAction('buyIns', 'tax')" class="w-full flex justify-between items-center bg-emerald-600 hover:bg-emerald-500 text-white py-3 px-4 rounded-xl font-black shadow-sm transition-transform active:scale-95 border-b-4 border-emerald-800 active:border-b-0 disabled:bg-slate-400 disabled:border-slate-500 disabled:active:border-b-4 disabled:transform-none disabled:cursor-not-allowed">
-                                    <span>稅務保險</span><span class="font-mono bg-black/20 px-2 py-1 rounded text-xs border border-white/20">$200</span>
-                                </button>
-                                <button id="sm-ins-accident" onclick="window.financeAction('buyIns', 'accident')" class="w-full flex justify-between items-center bg-emerald-600 hover:bg-emerald-500 text-white py-3 px-4 rounded-xl font-black shadow-sm transition-transform active:scale-95 border-b-4 border-emerald-800 active:border-b-0 disabled:bg-slate-400 disabled:border-slate-500 disabled:active:border-b-4 disabled:transform-none disabled:cursor-not-allowed">
-                                    <span>意外保險</span><span class="font-mono bg-black/20 px-2 py-1 rounded text-xs border border-white/20">$200</span>
-                                </button>
-                                <button id="sm-ins-comprehensive" onclick="window.financeAction('buyIns', 'comprehensive')" class="w-full flex justify-between items-center bg-emerald-600 hover:bg-emerald-500 text-white py-3 px-4 rounded-xl font-black shadow-sm transition-transform active:scale-95 border-b-4 border-emerald-800 active:border-b-0 disabled:bg-slate-400 disabled:border-slate-500 disabled:active:border-b-4 disabled:transform-none disabled:cursor-not-allowed">
-                                    <span>綜合保險</span><span class="font-mono bg-black/20 px-2 py-1 rounded text-xs border border-white/20">$400</span>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>
@@ -800,22 +708,19 @@
                         }
 
                         stockHtmlInner += `
-                            <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 flex justify-between items-center shadow-sm">
-                                <div class="flex-1">
-                                    <div class="font-bold text-blue-800 text-sm">${stockDef.name}</div>
-                                    <div class="text-xs text-slate-500 font-mono mt-1">持有: ${port.qty} 股</div>
-                                </div>
+                            <div class="bg-slate-50 p-2 rounded-xl border border-slate-200 flex justify-between items-center shadow-sm">
+                                <div class="flex-1"><b class="text-blue-800 text-sm">${stockDef.name}</b> <span class="text-xs text-slate-500 font-mono">(${port.qty}股)</span></div>
                                 <div class="text-right flex items-center">
                                     <div>
-                                        <div class="font-black text-blue-700 text-sm font-mono">$${currentVal.toLocaleString()}</div>
-                                        <div class="text-[10px] font-bold font-mono ${pnlClass} mt-1">${pnlSign}$${pnl.toLocaleString()} (均價 $${port.avg})</div>
+                                        <div class="font-black text-blue-700 text-sm font-mono">$${currentVal}</div>
+                                        <div class="text-[10px] font-bold font-mono ${pnlClass}">${pnlSign}$${pnl} (均價 $${port.avg})</div>
                                     </div>
                                     ${actionBtn}
                                 </div>
                             </div>`;
                     }
                 }
-                if (stockHtmlInner) html += `<div class="font-black text-slate-700 mt-5 mb-2 flex items-center gap-2"><i class="fa-solid fa-arrow-trend-up text-blue-600"></i> <span>股票組合</span></div><div class="space-y-2">${stockHtmlInner}</div>`;
+                if (stockHtmlInner) html += `<div class="font-black text-slate-700 mt-4 mb-2 flex items-center gap-2"><i class="fa-solid fa-arrow-trend-up text-blue-600"></i> <span>股票組合</span></div><div class="space-y-2">${stockHtmlInner}</div>`;
             }
 
             let insHtml = '';
@@ -824,7 +729,7 @@
             if (player.insurances?.comprehensive) insHtml += `<span class="bg-emerald-100 text-emerald-700 text-xs px-2 py-1 rounded-full font-bold shadow-sm">🛡️ 綜合保險</span>`;
             if (insHtml) html += `<div class="mt-2 flex gap-1 flex-wrap">${insHtml}</div>`;
 
-            html += `<div class="font-black text-slate-700 mt-5 mb-2 flex items-center gap-2"><i class="fa-solid fa-building text-blue-600"></i> <span>實體企業資產</span></div>`;
+            html += `<div class="font-black text-slate-700 mt-4 mb-2 flex items-center gap-2"><i class="fa-solid fa-building text-blue-600"></i> <span>實體企業資產</span></div>`;
             if (myProps.length === 0) {
                 html += `<div class="text-center text-slate-400 py-4 text-sm font-bold bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">暫無物業</div>`;
             } else {
@@ -835,7 +740,7 @@
                     const prop = getPropData(tileId);
                     totalVal += currentPrice;
                     
-                    const buyPrice = prop.buyPrice || tile.price; 
+                    const buyPrice = prop.buyPrice || tile.price; // 支援顯示購入價
                     
                     let actionBtn = '';
                     if (!isMe && !player.isBankrupt) {
@@ -850,13 +755,13 @@
                     }
 
                     html += `
-                        <div class="border-2 p-4 rounded-2xl bg-white shadow-sm flex flex-col hover:bg-slate-50 transition" style="border-color: ${tile.color}">
-                            <div class="flex justify-between items-center font-black text-sm text-slate-800 mb-2">
+                        <div class="border-2 p-3 rounded-2xl bg-white shadow-sm flex flex-col hover:bg-slate-50 transition" style="border-color: ${tile.color}">
+                            <div class="flex justify-between items-center font-black text-sm text-slate-800 mb-1">
                                 <span>${tile.name} <span class="text-xs text-blue-600 ml-1 tracking-tighter">${'⭐'.repeat(prop.level)}</span></span>
                             </div>
                             <div class="flex justify-between items-center text-xs">
-                                <span class="text-slate-500 bg-slate-100 px-2 py-1 rounded font-mono border border-slate-200">買入 $${buyPrice}</span>
-                                <span class="text-blue-700 bg-blue-50 px-2 py-1 rounded-lg font-mono font-bold shadow-sm">估值 $${currentPrice}</span>
+                                <span class="text-slate-500 bg-slate-100 px-2 py-0.5 rounded font-mono">買入 $${buyPrice}</span>
+                                <span class="text-blue-700 bg-blue-50 px-2 py-0.5 rounded-lg font-mono font-bold">估值 $${currentPrice}</span>
                             </div>
                             ${actionBtn}
                         </div>
@@ -870,14 +775,14 @@
             html += `
                 <div class="mt-6 pt-4 border-t-2 border-slate-200 flex justify-between items-center text-xl bg-slate-50 p-4 rounded-2xl shadow-inner">
                     <span class="font-black text-slate-800">📊 資產淨值 (NAV)</span>
-                    <span class="font-black font-mono ${totalVal<0?'text-red-600':'text-blue-700'}">$${totalVal.toLocaleString()}</span>
+                    <span class="font-black font-mono ${totalVal<0?'text-red-600':'text-blue-700'}">$${totalVal}</span>
                 </div>
             </div>`;
 
             showModal(`<span class="flex items-center gap-2"><i class="fa-solid fa-briefcase text-blue-600"></i> ${player.name} 的財務報表</span>`, html, [{text: '關閉', style: 'bg-slate-600 hover:bg-slate-500 w-full'}]);
         };
 
-        // 從個人資產清單直接出售股票
+        // 從個人資產清單出售股票
         window.promptSellStockFromPortfolio = async (sym) => {
             document.getElementById('global-modal').classList.add('hidden');
             const stockDef = roomState.stocks[sym];
@@ -930,7 +835,7 @@
                 }
             }
             
-            // 操作完成或取消後，自動重新打開該玩家的財務報表
+            // 操作完成或取消後，自動重新打開該玩家的財務報表，實現「不用關閉繼續看」的體驗
             window.showPlayerAssets(currentUser.uid);
         };
 
@@ -971,14 +876,10 @@
                 
                 try {
                     await update(getRoomRef(currentRoomId), { players, properties: props, logs });
-                    showModal("✅ 出售成功", `<div class='p-6 text-center font-bold text-emerald-600 text-xl'>已成功將資產售予銀行，獲得現金 <span class="font-mono text-2xl">$${currentPrice}</span>。</div>`, [{text: '完成', style: 'bg-slate-800 hover:bg-slate-700 w-full py-3'}]).then(() => {
-                        window.showPlayerAssets(currentUser.uid);
-                    });
+                    showModal("✅ 出售成功", `<div class='p-6 text-center font-bold text-emerald-600 text-xl'>已成功將資產售予銀行，獲得現金 <span class="font-mono text-2xl">$${currentPrice}</span>。</div>`, [{text: '完成', style: 'bg-slate-800 hover:bg-slate-700 w-full py-3'}]);
                 } catch(e) {
                     console.error(e);
                 }
-            } else {
-                window.showPlayerAssets(currentUser.uid);
             }
         };
 
@@ -1111,7 +1012,7 @@
             } else {
                 let otherPlayers = roomState.players.filter(p => p.uid !== me.uid && !p.isBankrupt);
                 if (otherPlayers.length === 0) {
-                    sfx.error(); await showModal("⚠️ 錯誤", "<div class='p-5 text-center font-bold'>目前沒有活躍玩家可進行交易！</div>", [{text: '返回', style: 'bg-slate-800 w-full py-3', resolveWith: true}]); return;
+                    sfx.error(); await showModal("⚠️ 錯誤", "<div class='p-5 text-center font-bold'>目前沒有活躍玩家可進行交易！</div>"); return;
                 }
                 let optHtml = `<select id="anytime-target-uid" class="w-full p-3 border-2 border-slate-300 rounded-xl mb-3 bg-white font-bold text-slate-700 focus:outline-none focus:border-blue-500">`;
                 otherPlayers.forEach(p => { optHtml += `<option value="${p.uid}">${p.name} (資金: $${p.money})</option>`; });
@@ -1147,7 +1048,6 @@
                 }
 
                 if (price > 0) {
-                    window.isWaitingForReplyAnytime = true;
                     try { await update(getRoomRef(currentRoomId), { anytimeTradeOffer: { type: actionType, from: me.uid, to: finalTargetUid, tileId: tile.id, price: price, status: 'pending' } }); } catch(e){}
                     showModal("⏳", "<div class='text-center p-6'><div class='text-5xl animate-bounce mb-4'><i class='fa-solid fa-envelope text-blue-500'></i></div><div class='font-bold text-slate-600 text-lg'>等待對方回覆中...</div></div>", []);
                 } else { sfx.error(); await showModal("⚠️", "<div class='p-5 text-center font-bold'>無效金額</div>"); }
@@ -1200,8 +1100,7 @@
                         }
                     } else { try{await update(getRoomRef(currentRoomId), { anytimeTradeOffer: { ...offer, status: 'rejected' } });}catch(e){} }
                 });
-            } else if (roomState && roomState.anytimeTradeOffer && roomState.anytimeTradeOffer.from === currentUser.uid && roomState.anytimeTradeOffer.status !== 'pending' && window.isWaitingForReplyAnytime) {
-                window.isWaitingForReplyAnytime = false;
+            } else if (roomState && roomState.anytimeTradeOffer && roomState.anytimeTradeOffer.from === currentUser.uid && roomState.anytimeTradeOffer.status !== 'pending' && document.getElementById('global-modal').innerHTML.includes("等待對方回覆中")) {
                 document.getElementById('global-modal').classList.add('hidden');
                 let newLogs = [...roomState.logs];
                 const tile = MAP_TILES.find(t => t.id === parseInt(roomState.anytimeTradeOffer.tileId));
@@ -1209,10 +1108,10 @@
                 
                 if (roomState.anytimeTradeOffer.status === 'accepted') {
                     newLogs.push(`🤝 成功以 $${roomState.anytimeTradeOffer.price} 完成 ${tile.name} 的產權交易！`);
-                    sfx.success(); showModal("🎉 交易成功", "<div class='p-5 text-center font-bold text-emerald-600 text-lg'>對方接受了報價！產權已轉移。</div>", [{text: '確認', style: 'bg-slate-800 w-full py-3'}]);
+                    sfx.success(); showModal("🎉 交易成功", "<div class='p-5 text-center font-bold text-emerald-600 text-lg'>對方接受了報價！產權已轉移。</div>");
                 } else {
                     newLogs.push(`❌ ${targetPlayer.name} 拒絕了報價。`);
-                    sfx.error(); showModal("💔 交易失敗", "<div class='p-5 text-center font-bold text-red-600 text-lg'>對方拒絕了報價或現金不足！</div>", [{text: '確認', style: 'bg-slate-800 w-full py-3'}]);
+                    sfx.error(); showModal("💔 交易失敗", "<div class='p-5 text-center font-bold text-red-600 text-lg'>對方拒絕了報價或現金不足！</div>");
                 }
                 try{update(getRoomRef(currentRoomId), { anytimeTradeOffer: null, logs: newLogs });}catch(e){}
             }
@@ -1504,7 +1403,7 @@
         const processEndOfTurnAndUpdate = async (playerData, pIndex, logs) => {
             let players = [...roomState.players]; players[pIndex] = playerData;
             let nextTurnIndex = roomState.turnIndex + 1;
-            let updates = { players, logs, turnIndex: nextTurnIndex, turnStartTime: Date.now() };
+            let updates = { players, logs, turnIndex: nextTurnIndex };
             
             if (nextTurnIndex > 0 && nextTurnIndex % players.length === 0) {
                 let triggerEvent = null;
@@ -1672,28 +1571,26 @@
             const ratio = player.loan > 0 ? (nav / player.loan).toFixed(2) : "∞";
             const isCrisis = player.loan > 0 && (nav / player.loan) < 0.1;
 
-            let stocksHtml = '<div class="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[35vh] overflow-y-auto pr-2 mt-2 custom-scrollbar">';
+            let stocksHtml = '<div class="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-[30vh] overflow-y-auto pr-1 mt-2 custom-scrollbar">';
             for (const [sym, stockDef] of Object.entries(roomState.stocks)) {
                 let myQty = player.portfolio[sym]?.qty || 0;
                 stocksHtml += `
-                    <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-col gap-3 hover:border-blue-300 transition-colors">
-                        <div class="flex justify-between items-start">
-                            <div>
-                                <div class="text-sm font-black text-slate-800">${stockDef.name}</div>
-                                <div class="text-xs text-slate-500 font-bold mt-1 bg-slate-100 inline-block px-2 py-0.5 rounded font-mono">持有: ${myQty}</div>
-                            </div>
-                            <div class="text-right">
-                                <div class="text-lg font-black text-blue-600 font-mono">$${stockDef.price}</div>
+                    <div class="bg-white p-3 rounded-xl shadow-sm border border-slate-200 flex flex-col gap-2">
+                        <div class="flex justify-between items-center">
+                            <div class="text-[12px] font-bold text-slate-700 leading-tight">${stockDef.name}</div>
+                            <div class="text-blue-600 text-sm font-black font-mono">$${stockDef.price}</div>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-[10px] text-slate-500 font-bold bg-slate-100 px-2 py-0.5 rounded font-mono">持有: ${myQty}</span>
+                            <div class="flex items-center bg-slate-100 rounded-lg overflow-hidden border border-slate-200">
+                                <button onclick="document.getElementById('qty-${sym}').stepDown()" class="px-2 text-slate-500 hover:bg-slate-200 font-bold">-</button>
+                                <input type="number" id="qty-${sym}" value="1" min="1" class="w-8 text-center bg-transparent text-xs font-bold text-blue-700 focus:outline-none font-mono">
+                                <button onclick="document.getElementById('qty-${sym}').stepUp()" class="px-2 text-slate-500 hover:bg-slate-200 font-bold">+</button>
                             </div>
                         </div>
-                        <div class="flex items-center gap-2 bg-slate-50 p-1.5 rounded-lg border border-slate-200">
-                            <button onclick="document.getElementById('qty-${sym}').value = Math.max(1, parseInt(document.getElementById('qty-${sym}').value) - 10)" class="w-8 h-8 rounded-md bg-white text-slate-600 font-bold shadow-sm hover:bg-slate-200">-10</button>
-                            <input type="number" id="qty-${sym}" value="10" min="1" class="flex-1 w-16 text-center bg-transparent text-base font-black text-slate-800 focus:outline-none font-mono">
-                            <button onclick="document.getElementById('qty-${sym}').value = parseInt(document.getElementById('qty-${sym}').value) + 10" class="w-8 h-8 rounded-md bg-white text-slate-600 font-bold shadow-sm hover:bg-slate-200">+10</button>
-                        </div>
-                        <div class="grid grid-cols-2 gap-2 mt-1">
-                            <button onclick="window.financeAction('buyStock', '${sym}', document.getElementById('qty-${sym}').value)" class="bg-emerald-500 hover:bg-emerald-400 text-white py-2 rounded-lg text-xs font-black shadow-sm transition-transform active:scale-95">買入</button>
-                            <button onclick="window.financeAction('sellStock', '${sym}', document.getElementById('qty-${sym}').value)" class="bg-rose-500 hover:bg-rose-400 text-white py-2 rounded-lg text-xs font-black shadow-sm transition-transform active:scale-95" ${myQty>0?'':'disabled'}>賣出</button>
+                        <div class="flex gap-1 mt-1">
+                            <button onclick="window.financeAction('buyStock', '${sym}', document.getElementById('qty-${sym}').value)" class="flex-1 bg-blue-600 text-white text-[11px] py-1.5 rounded-lg hover:bg-blue-500 font-bold transition-transform active:scale-95">買入</button>
+                            <button onclick="window.financeAction('sellStock', '${sym}', document.getElementById('qty-${sym}').value)" class="flex-1 bg-slate-600 text-white text-[11px] py-1.5 rounded-lg hover:bg-slate-500 font-bold transition-transform active:scale-95" ${myQty>0?'':'disabled'}>賣出</button>
                         </div>
                     </div>`;
             }
@@ -1827,9 +1724,6 @@
 
         document.getElementById('btn-roll').onclick = async () => {
             const pIdx = roomState.turnIndex % roomState.players.length; let player = {...roomState.players[pIdx]};
-            
-            // 延長回合時限以防在動畫或結算途中被系統 Skip
-            try { await update(getRoomRef(currentRoomId), { turnStartTime: Date.now() + 60000 }); } catch(e) {}
             
             let callLoanProb = 0.05;
             if (roomState.ecoCycle === '衰退') callLoanProb = 0.15;
@@ -1997,8 +1891,21 @@
                                         }
                                         if (finalPriceCanAfford && price > 0) {
                                             try{await update(getRoomRef(currentRoomId), { buyoutOffer: { from: player.uid, to: ownerPlayer.uid, tileId: tile.id, price: price, status: 'pending' } });}catch(e){}
-                                            window.isWaitingForReplyBuyout = true;
                                             showModal("⏳", "<div class='text-center p-8'><div class='text-6xl animate-bounce mb-4 text-blue-500'><i class='fa-solid fa-envelope'></i></div><div class='font-bold text-slate-600 text-xl'>等待對方回覆中...</div></div>", []);
+                                            const waitInterval = setInterval(async () => {
+                                                if (roomState && roomState.buyoutOffer && roomState.buyoutOffer.status !== 'pending') {
+                                                    clearInterval(waitInterval); document.getElementById('global-modal').classList.add('hidden');
+                                                    let newLogs = [...roomState.logs];
+                                                    if (roomState.buyoutOffer.status === 'accepted') {
+                                                        sfx.success(); newLogs.push(`🤝 ${player.name} 成功收購 ${tile.name}。`); await showModal("🎉 收購成功", "<div class='p-5 text-center font-bold text-emerald-600 text-lg'>對方接受了你的報價！產權已轉移。</div>");
+                                                    } else {
+                                                        sfx.error(); newLogs.push(`❌ ${ownerPlayer.name} 拒絕了收購報價。`); await showModal("💔 收購失敗", "<div class='p-5 text-center font-bold text-red-600 text-lg'>對方拒絕了你的報價！</div>");
+                                                    }
+                                                    try{await update(getRoomRef(currentRoomId), { buyoutOffer: null, logs: newLogs });}catch(e){}
+                                                    await checkAndFinalizeTurn(roomState.players.find(p=>p.uid===player.uid), pIndex, newLogs);
+                                                }
+                                            }, 500);
+                                            return;
                                         } else { await showModal("⚠️", "<div class='p-5 text-center font-bold'>資金不足或金額無效</div>"); }
                                     }
                                 }
@@ -2138,18 +2045,17 @@
                         sfx.cash(); try{await update(getRoomRef(currentRoomId), { players, properties: props, buyoutOffer: { ...offer, status: 'accepted' } });}catch(e){}
                     } else { try{await update(getRoomRef(currentRoomId), { buyoutOffer: { ...offer, status: 'rejected' } });}catch(e){} }
                 });
-            } else if (roomState && roomState.buyoutOffer && roomState.buyoutOffer.from === currentUser.uid && roomState.buyoutOffer.status !== 'pending' && window.isWaitingForReplyBuyout) {
-                window.isWaitingForReplyBuyout = false;
+            } else if (roomState && roomState.buyoutOffer && roomState.buyoutOffer.from === currentUser.uid && roomState.buyoutOffer.status !== 'pending' && document.getElementById('global-modal').innerHTML.includes("等待對方回覆中")) {
                 document.getElementById('global-modal').classList.add('hidden');
                 let newLogs = [...roomState.logs];
                 const tile = MAP_TILES.find(t => t.id === parseInt(roomState.buyoutOffer.tileId));
                 
                 if (roomState.buyoutOffer.status === 'accepted') {
                     newLogs.push(`🤝 成功以 $${roomState.buyoutOffer.price} 收購了 ${tile.name}！`);
-                    sfx.success(); showModal("🎉 收購成功", "<div class='p-5 text-center font-bold text-emerald-600 text-lg'>對方接受了報價！產權已轉移。</div>", [{text: '確認', style: 'bg-slate-800 w-full py-3'}]);
+                    sfx.success(); showModal("🎉 收購成功", "<div class='p-5 text-center font-bold text-emerald-600 text-lg'>對方接受了報價！產權已轉移。</div>");
                 } else {
                     newLogs.push(`❌ 收購報價被拒絕。`);
-                    sfx.error(); showModal("💔 收購失敗", "<div class='p-5 text-center font-bold text-red-600 text-lg'>對方拒絕了報價或現金不足！</div>", [{text: '確認', style: 'bg-slate-800 w-full py-3'}]);
+                    sfx.error(); showModal("💔 收購失敗", "<div class='p-5 text-center font-bold text-red-600 text-lg'>對方拒絕了報價或現金不足！</div>");
                 }
                 try{update(getRoomRef(currentRoomId), { buyoutOffer: null, logs: newLogs });}catch(e){}
             }
@@ -2210,7 +2116,6 @@
                     await set(newRoomRef, {
                         roomCode: code, state: 'waiting', hostId: currentUser.uid, turnIndex: 0,
                         ecoCycle: '復甦', interestRate: 10,
-                        turnStartTime: Date.now(),
                         stocks: {
                             tech: { name: '量子玄學(Tech)', price: 100 }, prop: { name: '納米樓(Prop)', price: 100 },
                             fin:  { name: '韭菜銀行(Fin)', price: 100 }, food: { name: '元素餐飲(Food)', price: 100 },
@@ -2271,72 +2176,15 @@
                         duration: duration,
                         endTime: endTime,
                         isFinished: false,
-                        turnStartTime: Date.now(),
                         logs: [...roomState.logs, `🚀 市場開盤！限時 ${duration} 分鐘的財務年度展開。`] 
                     });
                 }
             };
             
-            // 實時時鐘與回合計時器循環
+            // 實時時鐘循環
             setInterval(() => {
                 if (roomState && roomState.state === 'playing' && !roomState.isFinished) {
-                    updateTimerDisplay(); // 全局倒數計時
-
-                    // 回合 45 秒跳過邏輯
-                    if (roomState.turnStartTime) {
-                        const turnTimerBadge = document.getElementById('turn-timer-badge');
-                        if (turnTimerBadge) turnTimerBadge.classList.remove('hidden');
-
-                        const elapsed = Date.now() - roomState.turnStartTime;
-                        let timeLeft = 45 - Math.floor(elapsed / 1000);
-                        if (timeLeft > 45) timeLeft = 45; // 限制最高顯示 45 秒
-                        if (timeLeft < 0) timeLeft = 0;
-
-                        const turnTimerText = document.getElementById('turn-timer-text');
-                        if (turnTimerText) {
-                            turnTimerText.innerText = timeLeft;
-                            if (timeLeft <= 10) {
-                                turnTimerBadge.classList.add('animate-pulse', 'bg-red-600', 'text-white', 'border-red-700');
-                                turnTimerBadge.classList.remove('bg-red-100', 'text-red-700', 'border-red-200');
-                            } else {
-                                turnTimerBadge.classList.remove('animate-pulse', 'bg-red-600', 'text-white', 'border-red-700');
-                                turnTimerBadge.classList.add('bg-red-100', 'text-red-700', 'border-red-200');
-                            }
-                        }
-
-                        if (timeLeft <= 0) {
-                            const activePlayer = roomState.players[roomState.turnIndex % roomState.players.length];
-                            const isMyTurn = activePlayer.uid === currentUser.uid;
-                            const isHost = roomState.hostId === currentUser.uid;
-
-                            if ((isMyTurn || isHost) && !window.isSkippingTurn) {
-                                window.isSkippingTurn = true;
-                                
-                                // 主機優先執行，避免 Race Condition
-                                const delay = isHost ? 0 : 1000;
-                                
-                                setTimeout(() => {
-                                    if (roomState.turnStartTime + 45000 <= Date.now()) {
-                                        document.getElementById('global-modal').classList.add('hidden');
-                                        window.isLiquidating = false;
-                                        window.isHandlingCallLoan = false;
-                                        window.isNegotiatingAnytime = false;
-                                        window.isNegotiatingBuyout = false;
-                                        
-                                        let logs = roomState.logs || [];
-                                        logs.push(`⏳ ${activePlayer.name} 行動超時 (45秒)，系統自動跳過回合。`);
-                                        sfx.error();
-                                        
-                                        processEndOfTurnAndUpdate(activePlayer, roomState.turnIndex % roomState.players.length, logs).finally(() => {
-                                            setTimeout(() => { window.isSkippingTurn = false; }, 1000);
-                                        });
-                                    } else {
-                                        window.isSkippingTurn = false;
-                                    }
-                                }, delay);
-                            }
-                        }
-                    }
+                    updateTimerDisplay();
                 }
             }, 1000);
         });
