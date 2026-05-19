@@ -601,25 +601,27 @@
         </div>
 
         <!-- 視圖 2: 遊戲大廳 -->
-        <div id="view-lobby" class="absolute inset-0 flex flex-col items-center justify-center p-6 z-20 hidden bg-slate-100">
-            <div class="glass-card p-6 sm:p-8 rounded-3xl max-w-md w-full text-center relative z-10">
-                <h2 class="text-2xl sm:text-3xl font-black text-slate-800 mb-6 relative z-10">遊戲大廳</h2>
-                <div class="mb-6 p-5 bg-slate-50 rounded-2xl border border-slate-200 hover:border-blue-300 transition-colors">
-                    <h3 class="font-bold text-slate-500 mb-3 text-sm tracking-wider">開創新局 (教師/房主)</h3>
-                    <button id="btn-create-room" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl shadow-md transition-transform active:scale-95">創建專屬房間</button>
-                </div>
-                <div class="flex items-center my-4 opacity-50"><div class="flex-1 border-t-2 border-slate-300"></div><span class="px-4 text-slate-500 font-bold">OR</span><div class="flex-1 border-t-2 border-slate-300"></div></div>
-                <div class="p-5 bg-slate-50 rounded-2xl border border-slate-200 hover:border-blue-300 transition-colors">
-                    <h3 class="font-bold text-slate-500 mb-3 text-sm tracking-wider">參與競爭 (學生)</h3>
-                    <div class="flex gap-2">
-                        <input type="text" id="input-room-code" placeholder="4位數代碼" class="flex-1 border-2 border-slate-200 rounded-xl p-3 text-center tracking-widest text-2xl font-mono focus:outline-none focus:border-blue-500 uppercase" maxlength="4">
-                        <button id="btn-join-room" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 px-6 rounded-xl shadow-md transition-transform active:scale-95">加入</button>
-                    </div>
-                </div>
-                <p id="lobby-msg" class="text-red-500 font-bold text-sm mt-4 hidden animate-pulse"></p>
+<div id="view-lobby" class="absolute inset-0 flex flex-col items-center justify-start md:justify-center p-6 z-20 hidden bg-slate-100 overflow-y-auto">
+    <div class="glass-card p-6 sm:p-8 rounded-3xl max-w-md w-full text-center relative z-10 my-auto">
+        <h2 class="text-2xl sm:text-3xl font-black text-slate-800 mb-6 relative z-10">遊戲大廳</h2>
+        <div class="mb-6 p-5 bg-slate-50 rounded-2xl border border-slate-200 hover:border-blue-300 transition-colors">
+            <h3 class="font-bold text-slate-500 mb-3 text-sm tracking-wider">開創新局 (教師/房主)</h3>
+            <button id="btn-create-room" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl shadow-md transition-transform active:scale-95">創建專屬房間</button>
+        </div>
+        <div class="flex items-center my-4 opacity-50"><div class="flex-1 border-t-2 border-slate-300"></div><span class="px-4 text-slate-500 font-bold">OR</span><div class="flex-1 border-t-2 border-slate-300"></div></div>
+        
+        <div class="p-5 bg-slate-50 rounded-2xl border border-slate-200 hover:border-blue-300 transition-colors">
+            <h3 class="font-bold text-slate-500 mb-3 text-sm tracking-wider">參與競爭 (學生)</h3>
+            
+            <div class="flex flex-col gap-3">
+                <input type="text" id="input-room-code" placeholder="4位數代碼" class="w-full border-2 border-slate-200 rounded-xl p-3 text-center tracking-widest text-2xl font-mono focus:outline-none focus:border-blue-500 uppercase" maxlength="4">
+                
+                <button id="btn-join-room" class="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl shadow-md transition-transform active:scale-55">加入房間</button>
             </div>
         </div>
-
+        <p id="lobby-msg" class="text-red-500 font-bold text-sm mt-4 hidden animate-pulse"></p>
+    </div>
+</div>
         <!-- 視圖 3: 等候室 -->
         <div id="view-waiting" class="absolute inset-0 flex flex-col items-center justify-center p-6 z-20 hidden bg-slate-100">
             <div class="glass-card p-6 sm:p-8 rounded-3xl max-w-md w-full text-center relative z-10">
@@ -1523,7 +1525,7 @@
             showModal(`<span class="flex items-center gap-2 text-lg sm:text-xl font-black"><i class="fa-solid fa-file-contract text-blue-600"></i> 地契檔案</span>`, html, [{text: '關閉檔案', style: 'bg-slate-800 hover:bg-slate-700 w-full py-3 shadow-lg'}], 'min(92vw, 520px)');
         };
 
-        // 隨時收購要約
+// 隨時收購要約
         window.cancelAcquisitionOffer = async () => {
             const offer = getPendingAcquisitionOffer();
             if (!offer || offer.from !== currentUser.uid) return;
@@ -1538,7 +1540,10 @@
             if (window.currentModal === 'acquisition') window.openAcquisitionModal();
         };
 
-        const submitAcquisitionOffer = async (tileId, targetUid, actionType, price) => {
+        const submitAcquisitionOffer = async (tileId, targetUid, actionType, priceInput) => {
+            // 💡 安全防禦 1：強制將輸入轉換為整數數字，防止字串拼接漏洞
+            const price = parseInt(priceInput);
+            
             const tile = MAP_TILES.find(t => t.id === tileId);
             if (!tile || tile.type !== 'property') return { ok: false, msg: '無效物業' };
 
@@ -1565,33 +1570,42 @@
             if (!targetPlayer || targetPlayer.isBankrupt) return { ok: false, msg: '對方無法交易。' };
             if (!price || price <= 0) return { ok: false, msg: '請輸入有效金額。' };
 
+            // 💡 安全防禦 2：建立區域日誌變數，避免連續 update 時後面的寫入把前面的日誌「吞掉」
+            let currentLogs = [...roomState.logs];
+
             if (actionType === 'buy' && price > me.money) {
                 const loanRes = await promptQuickLoan(me, price);
                 if (!loanRes.success) return { ok: false, msg: '資金不足' };
                 me = roomState.players[meIdx];
                 const players = [...roomState.players];
                 players[meIdx] = me;
+                
+                // 先將貸款訊息推入紀錄
+                currentLogs.push(`🏦 ${me.name} 緊急貸款 $${loanRes.amt} 準備收購。`);
                 try {
                     await update(getRoomRef(currentRoomId), {
                         players,
-                        logs: [...roomState.logs, `🏦 ${me.name} 緊急貸款 $${loanRes.amt} 準備收購。`]
+                        logs: currentLogs
                     });
                 } catch (e) { console.error(e); }
             }
 
             window.isWaitingForReplyAnytime = true;
-            const logs = [...roomState.logs,
+            
+            // 將要約訊息推入同一個紀錄陣列中
+            currentLogs.push(
                 actionType === 'buy'
                     ? `📨 ${me.name} 向 ${targetPlayer.name} 提出收購【${tile.name}】$${price}，等待回覆…`
                     : `📨 ${me.name} 向 ${targetPlayer.name} 發售【${tile.name}】$${price}，等待回覆…`
-            ];
+            );
+            
             try {
                 await update(getRoomRef(currentRoomId), {
                     anytimeTradeOffer: {
                         type: actionType, from: me.uid, to: finalTargetUid,
                         tileId: tile.id, price, status: 'pending', createdAt: Date.now()
                     },
-                    logs
+                    logs: currentLogs // 使用完整的最新紀錄組
                 });
                 sfx.success();
                 return { ok: true };
@@ -1641,47 +1655,52 @@
             const meIdx = players.findIndex(p => p.uid === currentUser.uid);
             const senderIdx = players.findIndex(p => p.uid === sender.uid);
 
+            // 💡 安全防禦 3：防止找不到玩家時程式當機
+            if (meIdx === -1 || senderIdx === -1) return;
+
+            // 💡 安全防禦 1 的延續：確保從資料庫拿出的要約價格也是純數字，防止金額加法變字串串接
+            const offerPrice = parseInt(offer.price);
+
             if (offer.type === 'buy') {
-                if (players[senderIdx].money < offer.price) {
+                if (players[senderIdx].money < offerPrice) {
                     try { await update(getRoomRef(currentRoomId), { anytimeTradeOffer: { ...offer, status: 'rejected' } }); } catch (e) {}
                     sfx.error();
                     await showModal("💸 對方資金不足", "<div class='p-5 text-center font-bold'>買家現金不足。</div>");
                     return;
                 }
-                players[senderIdx].money -= offer.price;
-                players[meIdx].money += offer.price;
+                players[senderIdx].money -= offerPrice;
+                players[meIdx].money += offerPrice; // 現在這裡是正確的數字加法了！
                 const props = { ...roomState.properties };
-                props[tile.id] = { owner: sender.uid, level: prop.level || 1, buyPrice: offer.price };
+                props[tile.id] = { owner: sender.uid, level: prop.level || 1, buyPrice: offerPrice };
                 sfx.cash();
                 try {
                     await update(getRoomRef(currentRoomId), {
                         players, properties: props,
                         anytimeTradeOffer: { ...offer, status: 'accepted' },
-                        logs: [...roomState.logs, `✅ ${sender.name} 以 $${offer.price} 收購 ${tile.name}（${localPlayerName} 同意）。`]
+                        logs: [...roomState.logs, `✅ ${sender.name} 以 $${offerPrice} 收購 ${tile.name}（${localPlayerName} 同意）。`]
                     });
                 } catch (e) { console.error(e); }
             } else {
-                if (players[meIdx].money < offer.price) {
+                if (players[meIdx].money < offerPrice) {
                     sfx.error();
                     alert("你的現金不足！");
                     try { await update(getRoomRef(currentRoomId), { anytimeTradeOffer: { ...offer, status: 'rejected' } }); } catch (e) {}
                     return;
                 }
-                players[meIdx].money -= offer.price;
-                players[senderIdx].money += offer.price;
+                players[meIdx].money -= offerPrice;
+                players[senderIdx].money += offerPrice; // 防止字串拼接
                 const props = { ...roomState.properties };
-                props[tile.id] = { owner: currentUser.uid, level: prop.level || 1, buyPrice: offer.price };
+                props[tile.id] = { owner: currentUser.uid, level: prop.level || 1, buyPrice: offerPrice };
                 sfx.cash();
                 try {
                     await update(getRoomRef(currentRoomId), {
                         players, properties: props,
                         anytimeTradeOffer: { ...offer, status: 'accepted' },
-                        logs: [...roomState.logs, `✅ ${localPlayerName} 以 $${offer.price} 購入 ${tile.name}（${sender.name} 同意出售）。`]
+                        logs: [...roomState.logs, `✅ ${localPlayerName} 以 $${offerPrice} 購入 ${tile.name}（${sender.name} 同意出售）。`]
                     });
                 } catch (e) { console.error(e); }
             }
         };
-
         window.refreshAcquisitionForm = () => {
             const targetUid = document.getElementById('acq-target-uid')?.value;
             const actionType = document.getElementById('acq-action-type')?.value || 'buy';
