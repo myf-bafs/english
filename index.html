@@ -624,7 +624,7 @@
 </div>
         <!-- 視圖 3: 等候室 -->
         <div id="view-waiting" class="absolute inset-0 flex flex-col items-center justify-center p-6 z-20 hidden bg-slate-100">
-            <div class="glass-card p-6 sm:p-8 rounded-3xl max-w-md w-full text-center relative z-10">
+            <div class="glass-card p-6 sm:p-8 rounded-3xl max-w-md w-full text-center relative z-10 max-h-[calc(100dvh-4rem)] overflow-y-auto">
                 <h2 class="text-xl sm:text-2xl font-black text-slate-800 mb-2 relative z-10">準備開市</h2>
                 <div class="text-5xl font-mono font-black tracking-[0.2em] text-blue-600 my-6 bg-blue-50 py-4 rounded-xl border-2 border-blue-200 shadow-inner" id="display-room-code">----</div>
                 
@@ -1355,6 +1355,7 @@
         window.promptSellStockFromPortfolio = async (sym) => {
             document.getElementById('global-modal').classList.add('hidden');
             const stockDef = roomState.stocks[sym];
+            if (stockDef.status && stockDef.status !== 'active') { sfx.error(); alert('該股票已停牌/除牌，無法出售'); window.showPlayerAssets(currentUser.uid); return; }
             const meIdx = roomState.players.findIndex(p => p.uid === currentUser.uid);
             const me = roomState.players[meIdx];
             
@@ -1384,6 +1385,11 @@
             if (res === 'confirm') {
                 const qtyToSell = parseInt(document.getElementById('sell-qty-input').value);
                 if (qtyToSell > 0 && qtyToSell <= actualQty) {
+                    try {
+                        const snap = await get(getRoomRef(currentRoomId));
+                        const freshStatus = snap.val()?.stocks?.[sym]?.status;
+                        if (freshStatus && freshStatus !== 'active') { sfx.error(); alert('該股票目前已無法出售(同步驗證)'); window.showPlayerAssets(currentUser.uid); return; }
+                    } catch(e) {}
                     let players = [...roomState.players];
                     let p = players[meIdx];
                     let revenue = qtyToSell * stockDef.price;
@@ -1994,6 +2000,7 @@
         const handleGlobalEventObserver = () => {
             if (roomState && roomState.globalEvent && roomState.globalEvent.id !== window.lastSeenEventId) {
                 window.lastSeenEventId = roomState.globalEvent.id;
+                if (window.currentModal && ['bank','stock','acquisition'].includes(window.currentModal)) return;
                 sfx.alert();
                 showModal(`<span class="flex items-center gap-2"><i class="fa-solid fa-newspaper text-blue-500"></i> 突發新聞快訊</span>`, `
                     <div class="p-6 bg-slate-50 rounded-2xl border border-slate-200 mt-2 text-center shadow-inner">
@@ -2061,14 +2068,7 @@
                 handleCallLoanObserver();
                 handleGlobalEventObserver();
 
-                // 用於在非同步更新 Firebase 後重新刷新分離後的「銀行」或「證券」視窗（保留捲動位置）
-                if (window.currentModal === 'bank') {
-                    refreshBankModalInPlace();
-                } else if (window.currentModal === 'stock') {
-                    refreshStockModalInPlace();
-                } else if (window.currentModal === 'acquisition') {
-                    // 收購中心不自動刷新，避免跳動
-                }
+                // 銀行/證券/收購中心不自動刷新（僅在操作後由各函數自行刷新），避免頁面跳動
             }
         };
 
@@ -2312,6 +2312,8 @@
                     newStocks[k].price = Math.max(10, Math.floor(newStocks[k].price * (1 + change)));
                     if (Math.abs(change) > Math.abs(topChange)) { topChange = change; topMover = k; }
                 });
+                // Normalize: ensure all stocks have a status field (migrate old rooms)
+                Object.keys(newStocks).forEach(k => { if (!newStocks[k].status) newStocks[k].status = 'active'; });
                 // Stock status changes (suspension/delisting/listing)
                 let stockEvents = [];
                 Object.keys(newStocks).forEach(k => {
@@ -2625,18 +2627,25 @@
                 let qty = parseInt(amtStr); if (!qty || qty <= 0) return;
                 let stockDef = roomState.stocks[sym]; let totalCost = stockDef.price * qty; let port = p.portfolio[sym];
                 if (stockDef.status && stockDef.status !== 'active') { sfx.error(); hasError = true; alert('該股票目前無法交易'); }
-                else if (act === 'buyStock') {
-                    if (p.money >= totalCost) { 
-                        p.money -= totalCost; 
-                        let oldTotal = port.qty * port.avg; port.qty += qty; 
-                        port.avg = Math.round((oldTotal + totalCost) / port.qty);
-                        logs.push(`📈 ${p.name} 買入 ${qty} 股 ${stockDef.name}。`); sfx.cash(); 
-                    } else { sfx.error(); hasError = true; alert("現金不足！"); }
-                } else if (act === 'sellStock') {
-                    if (port.qty >= qty) { 
-                        p.money += totalCost; port.qty -= qty; if(port.qty === 0) port.avg = 0;
-                        logs.push(`📉 ${p.name} 賣出 ${qty} 股 ${stockDef.name}。`); sfx.cash(); 
-                    } else { sfx.error(); hasError = true; alert("股票數量不足！"); }
+                else {
+                    try {
+                        const snap = await get(getRoomRef(currentRoomId));
+                        const freshStatus = snap.val()?.stocks?.[sym]?.status;
+                        if (freshStatus && freshStatus !== 'active') { sfx.error(); hasError = true; alert('該股票目前已無法交易(同步驗證)'); }
+                    } catch(e) {}
+                    if (!hasError && act === 'buyStock') {
+                        if (p.money >= totalCost) { 
+                            p.money -= totalCost; 
+                            let oldTotal = port.qty * port.avg; port.qty += qty; 
+                            port.avg = Math.round((oldTotal + totalCost) / port.qty);
+                            logs.push(`📈 ${p.name} 買入 ${qty} 股 ${stockDef.name}。`); sfx.cash(); 
+                        } else { sfx.error(); hasError = true; alert("現金不足！"); }
+                    } else if (!hasError && act === 'sellStock') {
+                        if (port.qty >= qty) { 
+                            p.money += totalCost; port.qty -= qty; if(port.qty === 0) port.avg = 0;
+                            logs.push(`📉 ${p.name} 賣出 ${qty} 股 ${stockDef.name}。`); sfx.cash(); 
+                        } else { sfx.error(); hasError = true; alert("股票數量不足！"); }
+                    }
                 }
             }
             
@@ -3129,7 +3138,8 @@
                                 
                                 setTimeout(() => {
                                     if (roomState.turnStartTime + 20000 <= Date.now()) {
-                                        document.getElementById('global-modal').classList.add('hidden');
+                                        const keepModal = window.currentModal && ['bank','stock','acquisition'].includes(window.currentModal);
+                                        if (!keepModal) document.getElementById('global-modal').classList.add('hidden');
                                         window.isLiquidating = false;
                                         window.isHandlingCallLoan = false;
                                         window.isNegotiatingAnytime = false;
