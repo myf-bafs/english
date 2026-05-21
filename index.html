@@ -678,7 +678,7 @@
                         <div class="flex items-center justify-center gap-2 mb-2 w-full">
                             <div id="turn-indicator" class="font-bold text-sm md:text-lg text-blue-600 bg-blue-50 px-5 py-1.5 rounded-full shadow-sm">等待開始...</div>
                             <div id="turn-timer-badge" class="bg-red-100 text-red-700 font-bold px-3 py-1.5 rounded-full font-mono shadow-sm hidden border border-red-200 transition-colors text-sm md:text-base">
-                                ⏳ <span id="turn-timer-text">45</span>s
+                                ⏳ <span id="turn-timer-text">20</span>s
                             </div>
                         </div>
                         
@@ -1133,6 +1133,19 @@
                 if (qtyEl) qtyEl.textContent = String(qty);
                 const sellBtn = body.querySelector(`[data-stock-sell="${sym}"]`);
                 if (sellBtn) sellBtn.disabled = qty <= 0;
+                const statusEl = body.querySelector(`[data-stock-status="${sym}"]`);
+                if (statusEl) {
+                    const isActive = stockDef.status === 'active' || !stockDef.status;
+                    if (stockDef.status === 'suspended') statusEl.innerHTML = '<span class="text-[10px] font-black bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded-full border border-yellow-300 inline-block">🚦 停牌</span>';
+                    else if (stockDef.status === 'delisted') statusEl.innerHTML = '<span class="text-[10px] font-black bg-red-100 text-red-800 px-2 py-0.5 rounded-full border border-red-300 inline-block">🚫 已除牌</span>';
+                    else statusEl.innerHTML = '';
+                    const card = statusEl.closest('.group');
+                    if (card) {
+                        const buyBtn = card.querySelector('button:first-of-type');
+                        if (buyBtn) buyBtn.disabled = !isActive;
+                        if (sellBtn) sellBtn.disabled = !isActive || qty <= 0;
+                    }
+                }
             });
             scrollEl.scrollTop = scrollTop;
         };
@@ -2299,7 +2312,47 @@
                     newStocks[k].price = Math.max(10, Math.floor(newStocks[k].price * (1 + change)));
                     if (Math.abs(change) > Math.abs(topChange)) { topChange = change; topMover = k; }
                 });
+                // Stock status changes (suspension/delisting/listing)
+                let stockEvents = [];
+                Object.keys(newStocks).forEach(k => {
+                    let st = newStocks[k];
+                    if (st.status === 'delisted') return;
+                    if (st.status === 'active' && Math.random() < 0.06) {
+                        st.status = 'suspended'; st.price = Math.max(10, Math.floor(st.price * 0.7));
+                        stockEvents.push({ id: Date.now() + Math.random(), title: `🚦 ${st.name} 即日起停牌`, desc: `監管機構因 ${st.name} 涉嫌違規操作，宣佈其股票即日起暫停交易，股價暴跌 30%。`, impact: `${st.name} 暫時無法進行買賣` });
+                    } else if (st.status === 'suspended' && Math.random() < 0.4) {
+                        st.status = 'active'; st.price = Math.floor(st.price * 1.2);
+                        stockEvents.push({ id: Date.now() + Math.random(), title: `✅ ${st.name} 獲准復牌`, desc: `經過整改後，${st.name} 已符合監管要求，即日起恢復正常交易，復牌首日股價大漲 20%。`, impact: `${st.name} 恢復正常交易` });
+                    } else if (st.status === 'suspended' && Math.random() < 0.15) {
+                        st.status = 'delisted';
+                        stockEvents.push({ id: Date.now() + Math.random(), title: `🚫 ${st.name} 正式除牌`, desc: `因持續違規及財務狀況惡化，${st.name} 被強制從交易所除牌，所有持股將淪為壁紙。`, impact: `${st.name} 永久下市，持股價值歸零` });
+                        players.forEach(p => {
+                            for (let s in p.portfolio) {
+                                if (newStocks[s] && newStocks[s].name === st.name) { p.portfolio[s].qty = 0; p.portfolio[s].avg = 0; }
+                            }
+                        });
+                        logs.push(`💸 ${st.name} 除牌，所有持股化為壁紙。`);
+                    }
+                });
+                // IPO: new stock listing when active count is low
+                let activeCount = Object.keys(newStocks).filter(k => newStocks[k].status === 'active').length;
+                if (activeCount < 5 && Math.random() < 0.5) {
+                    let newSym = 'ipo_' + Date.now();
+                    let newNames = ['創科未來', '綠能動力', '元宇宙地產', 'AI驅動', '生物製藥', '太空探索', '區塊鍊金', '電芯革命', '量子信息', '深海資源'];
+                    let availNames = newNames.filter(n => !Object.values(newStocks).some(s => s.name === n));
+                    if (availNames.length > 0) {
+                        let newName = availNames[Math.floor(Math.random() * availNames.length)];
+                        newStocks[newSym] = { name: newName, price: 80 + Math.floor(Math.random() * 120), status: 'active' };
+                        stockEvents.push({ id: Date.now() + Math.random(), title: `🚀 ${newName} 火熱上市`, desc: `${newName} 今日在交易所正式掛牌上市，發行價 $${newStocks[newSym].price}，市場反應熱烈。`, impact: `${newName} 已開放交易` });
+                    }
+                }
                 updates.stocks = newStocks;
+
+                if (stockEvents.length > 0) {
+                    let se = stockEvents[0];
+                    logs.push(`📰 【股票事件】${se.title}`);
+                    if (!triggerEvent) triggerEvent = se;
+                }
 
                 if (!triggerEvent && Math.random() < 0.3 && topMover) {
                     let s = newStocks[topMover];
@@ -2495,11 +2548,16 @@
             let stocksHtml = '<div data-stock-scroll class="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[55vh] overflow-y-auto pr-2 mt-2 custom-scrollbar pb-4">';
             for (const [sym, stockDef] of Object.entries(roomState.stocks)) {
                 let myQty = player.portfolio[sym]?.qty || 0;
+                const isActive = stockDef.status === 'active' || !stockDef.status;
+                let statusBadge = '';
+                if (stockDef.status === 'suspended') statusBadge = '<span class="text-[10px] font-black bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded-full border border-yellow-300 inline-block">🚦 停牌</span>';
+                else if (stockDef.status === 'delisted') statusBadge = '<span class="text-[10px] font-black bg-red-100 text-red-800 px-2 py-0.5 rounded-full border border-red-300 inline-block">🚫 已除牌</span>';
                 stocksHtml += `
                     <div class="bg-white p-5 rounded-2xl shadow-md border border-slate-200 flex flex-col gap-3 hover:border-blue-400 transition-colors group">
                         <div class="flex justify-between items-start border-b border-slate-100 pb-3">
                             <div>
                                 <div class="text-base font-black text-slate-800 group-hover:text-blue-700 transition-colors">${stockDef.name}</div>
+                                <div data-stock-status="${sym}" class="text-xs mt-1">${statusBadge}</div>
                                 <div data-stock-qty="${sym}" class="text-xs text-slate-500 font-bold mt-1 bg-slate-100 inline-block px-2 py-0.5 rounded font-mono shadow-sm">您持有: ${myQty} 股</div>
                             </div>
                             <div class="text-right">
@@ -2513,8 +2571,8 @@
                             <button onclick="document.getElementById('qty-${sym}').value = parseInt(document.getElementById('qty-${sym}').value) + 10" class="w-10 h-10 rounded-lg bg-white text-slate-600 font-black shadow-sm hover:bg-slate-200 border border-slate-200 text-lg transition-transform active:scale-95">+10</button>
                         </div>
                         <div class="grid grid-cols-2 gap-3 mt-1">
-                            <button onclick="window.financeAction('buyStock', '${sym}', document.getElementById('qty-${sym}').value)" class="bg-emerald-500 hover:bg-emerald-400 text-white py-2.5 rounded-xl text-sm font-black shadow-md transition-transform active:scale-95 border-b-4 border-emerald-700 active:border-b-0">買入</button>
-                            <button data-stock-sell="${sym}" onclick="window.financeAction('sellStock', '${sym}', document.getElementById('qty-${sym}').value)" class="bg-rose-500 hover:bg-rose-400 text-white py-2.5 rounded-xl text-sm font-black shadow-md transition-transform active:scale-95 border-b-4 border-rose-700 active:border-b-0" ${myQty>0?'':'disabled'}>賣出</button>
+                            <button onclick="window.financeAction('buyStock', '${sym}', document.getElementById('qty-${sym}').value)" class="bg-emerald-500 hover:bg-emerald-400 text-white py-2.5 rounded-xl text-sm font-black shadow-md transition-transform active:scale-95 border-b-4 border-emerald-700 active:border-b-0" ${isActive?'':'disabled'}>買入</button>
+                            <button data-stock-sell="${sym}" onclick="window.financeAction('sellStock', '${sym}', document.getElementById('qty-${sym}').value)" class="bg-rose-500 hover:bg-rose-400 text-white py-2.5 rounded-xl text-sm font-black shadow-md transition-transform active:scale-95 border-b-4 border-rose-700 active:border-b-0" ${myQty>0 && isActive ? '':'disabled'}>賣出</button>
                         </div>
                     </div>`;
             }
@@ -2566,8 +2624,8 @@
             if (act === 'buyStock' || act === 'sellStock') {
                 let qty = parseInt(amtStr); if (!qty || qty <= 0) return;
                 let stockDef = roomState.stocks[sym]; let totalCost = stockDef.price * qty; let port = p.portfolio[sym];
-                
-                if (act === 'buyStock') {
+                if (stockDef.status && stockDef.status !== 'active') { sfx.error(); hasError = true; alert('該股票目前無法交易'); }
+                else if (act === 'buyStock') {
                     if (p.money >= totalCost) { 
                         p.money -= totalCost; 
                         let oldTotal = port.qty * port.avg; port.qty += qty; 
@@ -2963,11 +3021,11 @@
                         ecoCycle: '復甦', interestRate: 10,
                         turnStartTime: Date.now(),
                         stocks: {
-                            tech: { name: '量子玄學(Tech)', price: 100 }, prop: { name: '納米樓(Prop)', price: 100 },
-                            fin:  { name: '韭菜銀行(Fin)', price: 100 }, food: { name: '元素餐飲(Food)', price: 100 },
-                            med:  { name: '包治百病(Med)', price: 100 }, ai:   { name: '人工智障(AI)', price: 100 },
-                            crypto:{name: '空氣幣(Cryp)', price: 100 }, edu:  { name: '填鴨教育(Edu)', price: 100 },
-                            news: { name: '震驚傳媒(News)', price: 100 }, eco:  { name: '用愛發電(Eco)', price: 100 }
+                            tech: { name: '量子玄學(Tech)', price: 100, status: 'active' }, prop: { name: '納米樓(Prop)', price: 100, status: 'active' },
+                            fin:  { name: '韭菜銀行(Fin)', price: 100, status: 'active' }, food: { name: '元素餐飲(Food)', price: 100, status: 'active' },
+                            med:  { name: '包治百病(Med)', price: 100, status: 'active' }, ai:   { name: '人工智障(AI)', price: 100, status: 'active' },
+                            crypto:{name: '空氣幣(Cryp)', price: 100, status: 'active' }, edu:  { name: '填鴨教育(Edu)', price: 100, status: 'active' },
+                            news: { name: '震驚傳媒(News)', price: 100, status: 'active' }, eco:  { name: '用愛發電(Eco)', price: 100, status: 'active' }
                         },
                         players: [createInitialPlayer(currentUser.uid, localPlayerName, 0)],
                         properties: {}, logs: ["遊戲房間已創建。"]
@@ -3033,14 +3091,14 @@
                 if (roomState && roomState.state === 'playing' && !roomState.isFinished) {
                     updateTimerDisplay(); // 全局倒數計時
 
-                    // 回合 45 秒跳過邏輯
+                    // 回合 20 秒跳過邏輯
                     if (roomState.turnStartTime) {
                         const turnTimerBadge = document.getElementById('turn-timer-badge');
                         if (turnTimerBadge) turnTimerBadge.classList.remove('hidden');
 
                         const elapsed = Date.now() - roomState.turnStartTime;
-                        let timeLeft = 45 - Math.floor(elapsed / 1000);
-                        if (timeLeft > 45) timeLeft = 45; // 限制最高顯示 45 秒
+                        let timeLeft = 20 - Math.floor(elapsed / 1000);
+                        if (timeLeft > 20) timeLeft = 20; // 限制最高顯示 20 秒
                         if (timeLeft < 0) timeLeft = 0;
 
                         const turnTimerText = document.getElementById('turn-timer-text');
@@ -3067,7 +3125,7 @@
                                 const delay = isHost ? 0 : 1000;
                                 
                                 setTimeout(() => {
-                                    if (roomState.turnStartTime + 45000 <= Date.now()) {
+                                    if (roomState.turnStartTime + 20000 <= Date.now()) {
                                         document.getElementById('global-modal').classList.add('hidden');
                                         window.isLiquidating = false;
                                         window.isHandlingCallLoan = false;
@@ -3077,7 +3135,7 @@
                                         window.isWaitingForReplyBuyout = false;
                                         
                                         let logs = roomState.logs || [];
-                                        logs.push(`⏳ ${activePlayer.name} 行動超時 (45秒)，系統自動跳過回合。`);
+                                        logs.push(`⏳ ${activePlayer.name} 行動超時 (20秒)，系統自動跳過回合。`);
                                         sfx.error();
                                         
                                         processEndOfTurnAndUpdate(activePlayer, roomState.turnIndex % roomState.players.length, logs).finally(() => {
