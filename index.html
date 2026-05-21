@@ -2067,7 +2067,7 @@
                 } else if (window.currentModal === 'stock') {
                     refreshStockModalInPlace();
                 } else if (window.currentModal === 'acquisition') {
-                    window.openAcquisitionModal();
+                    // 收購中心不自動刷新，避免跳動
                 }
             }
         };
@@ -2875,15 +2875,16 @@
                 Object.entries(player.portfolio).forEach(([sym, data]) => {
                     if (data.qty > 0) {
                         const s = roomState.stocks[sym];
+                        const liqActive = !s.status || s.status === 'active';
                         html += `
                         <div class="flex justify-between items-center bg-white p-3 rounded-xl shadow-sm border border-slate-200">
                             <div>
                                 <div class="font-bold text-sm text-slate-800">${s.name}</div>
-                                <div class="text-xs text-slate-500 font-mono">持有: ${data.qty} 股 | 現價: $${s.price}</div>
+                                <div class="text-xs text-slate-500 font-mono">持有: ${data.qty} 股 | 現價: $${s.price}${!liqActive ? ' <span class="text-red-600 font-black">(已停牌/除牌)</span>' : ''}</div>
                             </div>
                             <div class="flex gap-2">
-                                <button onclick="window.sellStockLiq('${sym}', Math.min(${data.qty}, 10))" class="bg-slate-700 hover:bg-slate-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm">賣 10</button>
-                                <button onclick="window.sellStockLiq('${sym}', ${data.qty})" class="bg-rose-600 hover:bg-rose-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm">全賣</button>
+                                ${liqActive ? `<button onclick="window.sellStockLiq('${sym}', Math.min(${data.qty}, 10))" class="bg-slate-700 hover:bg-slate-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm">賣 10</button>
+                                <button onclick="window.sellStockLiq('${sym}', ${data.qty})" class="bg-rose-600 hover:bg-rose-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm">全賣</button>` : '<span class="text-red-500 text-xs font-black px-3 py-1.5">無法交易</span>'}
                             </div>
                         </div>`;
                     }
@@ -2891,6 +2892,8 @@
                 html += `</div>`;
                 
                 window.sellStockLiq = async (sym, qty) => {
+                    const st = roomState.stocks[sym];
+                    if (st && st.status && st.status !== 'active') { sfx.error(); alert('該股票已停牌/除牌，無法交易'); return; }
                     document.getElementById('global-modal').classList.add('hidden'); window.isLiquidating = false;
                     let pIdx = roomState.turnIndex % roomState.players.length; let players = [...roomState.players];
                     let p = players[pIdx]; let stockDef = roomState.stocks[sym];
