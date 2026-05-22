@@ -2641,9 +2641,9 @@
                 let newStocks = {...roomState.stocks};
                 let topMover = null; let topChange = 0;
                 Object.keys(newStocks).forEach(k => {
-                    let change = (Math.random() * 1.2) - 0.4; 
-                    if (updates.ecoCycle === '繁榮' || roomState.ecoCycle === '繁榮') change += 0.2;
-                    if (updates.ecoCycle === '蕭條' || roomState.ecoCycle === '蕭條') change -= 0.3;
+                    let change = (Math.random() * 0.5) - 0.25;
+                    if (updates.ecoCycle === '繁榮' || roomState.ecoCycle === '繁榮') change += 0.1;
+                    if (updates.ecoCycle === '蕭條' || roomState.ecoCycle === '蕭條') change -= 0.15;
                     newStocks[k].price = Math.max(10, Math.floor(newStocks[k].price * (1 + change)));
                     if (Math.abs(change) > Math.abs(topChange)) { topChange = change; topMover = k; }
                 });
