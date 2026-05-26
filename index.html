@@ -706,7 +706,7 @@
                     <span class="text-xl md:text-2xl drop-shadow">🏦</span>
                     <span class="fab-label hidden sm:inline text-sm px-1">銀行中心</span>
                 </button>
-                <button id="btn-work" onclick="window.startWork()" class="fab-btn hidden bg-gradient-to-r from-amber-600 to-orange-600 relative">
+                <button id="btn-work" onclick="window.startWork()" class="fab-btn bg-gradient-to-r from-amber-600 to-orange-600 relative">
                     <span class="text-xl md:text-2xl drop-shadow">🔨</span>
                     <span class="fab-label hidden sm:inline text-sm px-1">打工還債</span>
                     <span id="work-badge" class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-white shadow">!</span>
@@ -2377,11 +2377,7 @@
                 renderLogs();
                 checkTurnState();
                 const curPlayer = roomState.players.find(p => p.uid === currentUser.uid);
-                if (curPlayer && curPlayer.isBankrupt) {
-                    document.getElementById('btn-work').classList.remove('hidden');
-                } else {
-                    document.getElementById('btn-work').classList.add('hidden');
-                }
+                document.getElementById('work-badge').classList.toggle('hidden', !curPlayer || !curPlayer.isBankrupt);
                 handleBuyoutOfferObserver(); 
                 handleAnytimeTradeObserver(); 
                 handleCallLoanObserver();
