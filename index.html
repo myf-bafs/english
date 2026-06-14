@@ -1118,7 +1118,7 @@
         const GLM_API_KEY = '8d0aed4bd2c54761bfc6acbcc5da3cd1.28X5OyQEL0SrHS7M';
         const GLM_API_URL = 'https://open.bigmodel.cn/api/paas/v4/chat/completions';
 
-        const callGLM = async (systemPrompt, userPrompt, timeoutMs = 8000) => {
+        const callGLM = async (systemPrompt, userPrompt, timeoutMs = 15000) => {
             try {
                 const controller = new AbortController();
                 const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -1126,14 +1126,18 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GLM_API_KEY}` },
                     body: JSON.stringify({ model: 'GLM-4.7-Flash', messages: [
-                        { role: 'system', content: systemPrompt },
+                        { role: 'system', content: systemPrompt + ' 直接回答，不要輸出思考過程。' },
                         { role: 'user', content: userPrompt }
-                    ], temperature: 0.8, max_tokens: 300 }),
+                    ], temperature: 0.8, max_tokens: 1000 }),
                     signal: controller.signal
                 });
                 clearTimeout(timer);
                 const data = await res.json();
-                return data.choices?.[0]?.message?.content?.trim() || '';
+                const content = data.choices?.[0]?.message?.content?.trim();
+                if (content) return content;
+                const reasoning = data.choices?.[0]?.message?.reasoning_content?.trim();
+                if (reasoning) return reasoning;
+                return '';
             } catch (e) { console.warn('GLM call failed:', e); return ''; }
         };
 
