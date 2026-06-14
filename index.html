@@ -1132,13 +1132,14 @@
                     signal: controller.signal
                 });
                 clearTimeout(timer);
+                if (!res.ok) { console.warn('[GLM] HTTP', res.status, await res.text().catch(()=>'')); return ''; }
                 const data = await res.json();
                 const content = data.choices?.[0]?.message?.content?.trim();
                 if (content) return content;
                 const reasoning = data.choices?.[0]?.message?.reasoning_content?.trim();
                 if (reasoning) return reasoning;
                 return '';
-            } catch (e) { console.warn('GLM call failed:', e); return ''; }
+            } catch (e) { console.warn('[GLM] 呼叫失敗:', e.message || e); if (e?.name==='AbortError') console.warn('[GLM] 原因: timeout'); return ''; }
         };
 
         const genEconomicDesc = async (cycle) => {
