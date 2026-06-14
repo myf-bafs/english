@@ -580,6 +580,11 @@
             </div>
         </div>
         
+        <div class="hidden sm:flex items-center gap-1 md:gap-2">
+            <a href="https://myf-bafs.github.io/english/" target="_blank" class="text-[10px] md:text-xs bg-slate-700 hover:bg-slate-600 px-2 md:px-3 py-1 rounded-full border border-slate-500 transition-colors inline-flex items-center gap-1 whitespace-nowrap">
+                <i class="fa-solid fa-gamepad"></i> <span class="hidden md:inline">Monopoly</span><span class="md:hidden">Game</span>
+            </a>
+        </div>
         <div id="user-info" class="hidden flex items-center gap-1 md:gap-3 shrink-0 min-w-0">
             <div class="bg-slate-800 px-2 md:px-4 py-1 rounded-full border border-slate-600 shadow-inner text-white font-bold text-xs md:text-base max-w-[80px] md:max-w-[150px] truncate" id="display-name"></div>
             <button onclick="window.quitGame()" class="bg-red-600 hover:bg-red-500 text-white text-xs px-2 md:px-3 py-1.5 rounded-full shadow transition-colors border border-red-400 font-bold flex items-center gap-1 whitespace-nowrap shrink-0">
@@ -706,9 +711,9 @@
                     <span class="text-xl md:text-2xl drop-shadow">🏦</span>
                     <span class="fab-label hidden sm:inline text-sm px-1">銀行中心</span>
                 </button>
-                <button id="btn-work" onclick="window.startWork()" class="fab-btn bg-gradient-to-r from-amber-600 to-orange-600 relative">
+                <button id="btn-work" onclick="window.startWork()" class="fab-btn hidden bg-gradient-to-r from-amber-600 to-orange-600 relative">
                     <span class="text-xl md:text-2xl drop-shadow">🔨</span>
-                    <span class="fab-label hidden sm:inline text-sm px-1">打工還債</span>
+                    <span class="fab-label hidden sm:inline text-sm px-1">打工</span>
                     <span id="work-badge" class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-white shadow">!</span>
                 </button>
             </div>
@@ -1437,7 +1442,7 @@
         };
 
         window.declareBankrupt = async () => {
-            if (!confirm("確定要宣告破產嗎？您將失去所有資產並進入打工還債模式。")) return;
+            if (!confirm("確定要宣告破產嗎？您將失去所有資產並進入打工模式。")) return;
             document.getElementById('global-modal').classList.add('hidden'); 
             window.isLiquidating = false;
             
@@ -1445,10 +1450,7 @@
             let players = [...roomState.players]; 
             let p = players[pIdx];
             
-            const debtAmount = Math.max(5000, Math.abs(p.money) || 5000);
             p.isBankrupt = true;
-            p.workDebt = debtAmount;
-            p.workMoney = 0;
             p.money = 0;
             p.loan = 0;
             p.portfolio = {};
@@ -1462,7 +1464,7 @@
             });
             
             sfx.error();
-            let logs = [...roomState.logs, `💀 ${p.name} 宣告破產！需要打工償還 $${debtAmount} 債務。`];
+            let logs = [...roomState.logs, `💀 ${p.name} 宣告破產！需透過打工賺取資金脫離破產。`];
             
             try { await update(getRoomRef(currentRoomId), { players, properties: props, logs }); } catch(e) {}
             await processEndOfTurnAndUpdate(p, pIdx, logs);
@@ -2376,8 +2378,12 @@
                 renderPlayers();
                 renderLogs();
                 checkTurnState();
-                const curPlayer = roomState.players.find(p => p.uid === currentUser.uid);
-                document.getElementById('work-badge').classList.toggle('hidden', !curPlayer || !curPlayer.isBankrupt);
+                const activePlayer = roomState.players[roomState.turnIndex % roomState.players.length];
+                if (activePlayer && activePlayer.uid === currentUser.uid) {
+                    document.getElementById('btn-work').classList.remove('hidden');
+                } else {
+                    document.getElementById('btn-work').classList.add('hidden');
+                }
                 handleBuyoutOfferObserver(); 
                 handleAnytimeTradeObserver(); 
                 handleCallLoanObserver();
@@ -2522,8 +2528,7 @@
                 }
                 
                 if (p.isBankrupt) {
-                    const remaining = (p.workDebt || 5000) - (p.workMoney || 0);
-                    icons += `<span class="bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded shadow-sm font-bold">🔨 打工 $${Math.max(0, remaining)}</span>`;
+                    icons += `<span class="bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded shadow-sm font-bold">🔨 破產</span>`;
                 }
                 let hasStocks = Object.values(p.portfolio||{}).some(s => s.qty>0);
                 if(hasStocks) icons += `<span class="bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded shadow-sm font-bold"><i class="fa-solid fa-arrow-trend-up"></i> 股票</span>`;
@@ -2563,12 +2568,11 @@
 
             if (activePlayer.isBankrupt) {
                 if (activePlayer.uid === currentUser.uid) {
-                    const remaining = (activePlayer.workDebt || 5000) - (activePlayer.workMoney || 0);
-                    indicator.innerText = `🔨 打工還債中 (尚欠 $${Math.max(0, remaining)})`;
+                    indicator.innerText = `🔨 破產中 (資金 $${activePlayer.money})，按「打工」賺錢脫離破產`;
                     indicator.className = "font-bold text-sm text-orange-600 bg-orange-100 px-4 py-2 rounded-full";
                     btnRoll.classList.add('hidden');
                 } else {
-                    if (roomState.hostId === currentUser.uid) { processEndOfTurnAndUpdate(activePlayer, roomState.turnIndex % roomState.players.length, [`⚠️ ${activePlayer.name} 正在打工還債，跳過。`]); }
+                    if (roomState.hostId === currentUser.uid) { processEndOfTurnAndUpdate(activePlayer, roomState.turnIndex % roomState.players.length, [...roomState.logs, `⚠️ ${activePlayer.name} 正在打工還債，跳過。`]); }
                 }
                 return;
             }
@@ -2584,7 +2588,7 @@
                     } else {
                         indicator.innerText = "⚠️ 破產危機！請變賣資產";
                         indicator.className = "font-black text-base text-white bg-red-600 px-6 py-2 rounded-full shadow-lg animate-bounce";
-                        showLiquidationModal(activePlayer);
+                        if (!window.isLiquidating) showLiquidationModal(activePlayer);
                     }
                     btnRoll.classList.add('hidden');
                 } else if (roomState.buyoutOffer && roomState.buyoutOffer.from === currentUser.uid && roomState.buyoutOffer.status === 'pending') {
@@ -2786,13 +2790,10 @@
                 const myProps = Object.keys(roomState.properties).filter(k => { const p = getPropData(k); return p && p.owner === playerData.uid; });
                 let hasStocks = Object.values(playerData.portfolio||{}).some(s => s.qty>0);
                 if (myProps.length === 0 && !hasStocks && playerData.money <= 0) { 
-                    const debtAmount = Math.max(5000, Math.abs(playerData.money) || 5000);
                     playerData.isBankrupt = true;
-                    playerData.workDebt = debtAmount;
-                    playerData.workMoney = 0;
                     playerData.money = 0;
                     playerData.loan = 0;
-                    logs.push(`💀 ${playerData.name} 資不抵債，正式破產！需打工償還 $${debtAmount}。`); sfx.error();
+                    logs.push(`💀 ${playerData.name} 資不抵債，正式破產！需透過打工賺取資金脫離破產。`); sfx.error();
                     await processEndOfTurnAndUpdate(playerData, pIndex, logs);
                 } else {
                     let players = [...roomState.players]; players[pIndex] = playerData;
@@ -2835,9 +2836,9 @@
         window.startWork = async () => {
             const pIdx = roomState.turnIndex % roomState.players.length;
             const player = roomState.players[pIdx];
-            if (!player.isBankrupt || player.uid !== currentUser.uid) {
+            if (player.uid !== currentUser.uid) {
                 sfx.error();
-                showModal("🔨 打工還債", `<div class="text-center p-6"><p class="font-bold text-slate-700">只有在破產且是你的回合時才能打工。</p></div>`);
+                showModal("🔨 打工", `<div class="text-center p-6"><p class="font-bold text-slate-700">只有在你的回合時才能打工。</p></div>`);
                 return;
             }
             const correct = await triggerBAFSQuestion();
@@ -2845,24 +2846,15 @@
             let p = players[pIdx];
             let logs = [...roomState.logs];
             if (correct) {
-                p.workMoney = (p.workMoney || 0) + 100;
-                const debt = p.workDebt || 5000;
-                if (p.workMoney >= debt) {
+                p.money += 100;
+                sfx.cash();
+                if (p.isBankrupt && p.money > 0) {
                     p.isBankrupt = false;
-                    p.money = 5000;
-                    p.workDebt = 0;
-                    p.workMoney = 0;
-                    p.loan = 0;
-                    logs.push(`🎉 ${p.name} 成功還清債務，獲得 $5,000 重返商場！`);
-                    await processEndOfTurnAndUpdate(p, pIdx, logs);
-                    sfx.success();
-                    showModal("🎉 重返商場", `<div class="text-center p-6"><div class="text-6xl mb-4">🎊</div><p class="font-black text-emerald-600 text-2xl">成功還清債務！</p><p class="text-lg mt-4 text-slate-700">獲得 <span class="font-mono font-black text-2xl text-emerald-600">$5,000</span> 重返商場！</p></div>`);
+                    logs.push(`🎉 ${p.name} 打工賺夠資金，成功脫離破產！目前資金 $${p.money}。`);
                 } else {
-                    const remaining = debt - p.workMoney;
-                    logs.push(`🔨 ${p.name} 打工賺了 $100，尚欠 $${remaining}。`);
-                    sfx.cash();
-                    await processEndOfTurnAndUpdate(p, pIdx, logs);
+                    logs.push(`🔨 ${p.name} 打工賺了 $100，目前資金 $${p.money}。`);
                 }
+                await processEndOfTurnAndUpdate(p, pIdx, logs);
             } else {
                 logs.push(`❌ ${p.name} 答錯問題，未能賺取收入。`);
                 await processEndOfTurnAndUpdate(p, pIdx, logs);
@@ -3570,7 +3562,7 @@
             });
             html += `</div>`;
             
-            html += `<div class="mt-6 border-t-2 border-red-200 pt-4"><button onclick="window.declareBankrupt()" class="w-full bg-amber-700 text-amber-100 font-bold py-4 rounded-xl shadow-md hover:bg-amber-600 transition-transform active:scale-95 border border-amber-600/50"><i class="fa-solid fa-hammer"></i> 宣告破產 (進入打工還債模式)</button></div>`;
+            html += `<div class="mt-6 border-t-2 border-red-200 pt-4"><button onclick="window.declareBankrupt()" class="w-full bg-amber-700 text-amber-100 font-bold py-4 rounded-xl shadow-md hover:bg-amber-600 transition-transform active:scale-95 border border-amber-600/50"><i class="fa-solid fa-hammer"></i> 宣告破產 (進入打工模式)</button></div>`;
             
             window.sellToBank = async (tileId, price) => {
                 document.getElementById('global-modal').classList.add('hidden'); window.isLiquidating = false;
