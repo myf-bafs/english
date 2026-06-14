@@ -1,0 +1,44 @@
+{
+  "rules": {
+    "artifacts": {
+      "bafs-monopoly": {
+        "public": {
+          "data": {
+            "rooms": {
+              ".read": "auth != null",
+              ".write": "auth != null",
+              "$roomId": {
+                ".validate": "newData.hasChildren(['roomCode', 'state'])"
+              }
+            }
+          }
+        },
+        "users": {
+          "$userId": {
+            ".read": "auth != null && auth.uid == $userId",
+            ".write": "auth != null && auth.uid == $userId"
+          }
+        }
+      },
+      "$appId": {
+        "public": {
+          "data": {
+            "rooms": {
+              ".read": "auth != null",
+              ".write": "auth != null",
+              "$roomId": {
+                ".validate": "newData.hasChildren(['roomCode', 'state'])"
+              }
+            }
+          }
+        },
+        "users": {
+          "$userId": {
+            ".read": "auth != null && auth.uid == $userId",
+            ".write": "auth != null && auth.uid == $userId"
+          }
+        }
+      }
+    }
+  }
+}
