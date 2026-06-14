@@ -3754,18 +3754,20 @@
                 durInput.oninput = () => { durVal.innerText = durInput.value + "分"; };
             }
 
-            document.getElementById('btn-login').onclick = () => {
+            document.getElementById('btn-login').onclick = async () => {
                 try {
                     if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
                     if(audioCtx.state === 'suspended') audioCtx.resume(); 
                 } catch(e) {}
 
-                if (!currentUser) return showModal("⚠️ 尚未連線", "<div class='p-5 text-center'>正在連線至伺服器，請稍候...</div>");
+                if (!currentUser) return await showModal("⚠️ 尚未連線", "<div class='p-5 text-center'>正在連線至伺服器，請稍候...</div>");
                 const name = document.getElementById('input-name').value.trim();
-                if (!name) return showModal("錯誤", "<div class='p-5 text-center font-bold'>請輸入董事長大名！</div>");
+                if (!name) return await showModal("錯誤", "<div class='p-5 text-center font-bold'>請輸入董事長大名！</div>");
                 localPlayerName = name;
-                document.getElementById('user-info').classList.remove('hidden');
-                document.getElementById('display-name').innerText = name;
+                const ui = document.getElementById('user-info');
+                if (ui) ui.classList.remove('hidden');
+                const dn = document.getElementById('display-name');
+                if (dn) dn.innerText = name;
                 showView('view-lobby');
             };
 
