@@ -1125,7 +1125,7 @@
                 const res = await fetch(GLM_API_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GLM_API_KEY}` },
-                    body: JSON.stringify({ model: 'glm-4-flash', messages: [
+                    body: JSON.stringify({ model: 'GLM-4.7-Flash', messages: [
                         { role: 'system', content: systemPrompt },
                         { role: 'user', content: userPrompt }
                     ], temperature: 0.8, max_tokens: 300 }),
