@@ -1131,8 +1131,23 @@
             while (_aiQueue.length > 0) {
                 const task = _aiQueue.shift();
                 await _addAILog(`🤖 AI 正在${task.label}...`);
-                const result = await task.fn();
-                if (result) await _addAILog(`🤖 ${result}`);
+                try {
+                    const result = await task.fn();
+                    if (result) await _addAILog(`🤖 ${result}`);
+                    else await _addAILog(`🤖 ${task.label}：API 暫時無法使用，保留本地內容`);
+                } catch (e) {
+                    if (e && e.message === 'RATE_LIMITED') {
+                        _aiQueue.unshift({ ...task, _retries: (task._retries||0) + 1 });
+                        if (task._retries < 3) {
+                            await _addAILog(`🤖 ${task.label}：API 速率限制，20秒後重試 (${task._retries+1}/3)`);
+                            await new Promise(r => setTimeout(r, 20000));
+                            continue;
+                        }
+                        await _addAILog(`🤖 ${task.label}：API 速率限制，已放棄`);
+                    } else {
+                        await _addAILog(`🤖 ${task.label}：錯誤 - ${e.message}`);
+                    }
+                }
                 if (_aiQueue.length > 0) await new Promise(r => setTimeout(r, 20000));
             }
             _aiBusy = false;
@@ -1140,6 +1155,7 @@
         const enqueueAI = (label, fn) => { _aiQueue.push({ label, fn }); if (!_aiBusy) _processAIQueue(); };
 
         const callGLM = async (systemPrompt, userPrompt, timeoutMs = 15000) => {
+            let wasRateLimited = false;
             for (let attempt = 0; attempt < 2; attempt++) {
                 try {
                     const controller = new AbortController();
@@ -1154,7 +1170,7 @@
                         signal: controller.signal
                     });
                     clearTimeout(timer);
-                    if (res.status === 429 && attempt === 0) { await new Promise(r => setTimeout(r, 3000)); continue; }
+                    if (res.status === 429) { wasRateLimited = true; await new Promise(r => setTimeout(r, 3000)); continue; }
                     if (!res.ok) { console.warn('[GLM] HTTP', res.status, await res.text().catch(()=>'')); return ''; }
                     const data = await res.json();
                     const content = data.choices?.[0]?.message?.content?.trim();
@@ -1164,6 +1180,7 @@
                     return '';
                 } catch (e) { console.warn('[GLM] 呼叫失敗:', e.message || e); if (e?.name==='AbortError') console.warn('[GLM] 原因: timeout'); return ''; }
             }
+            if (wasRateLimited) throw new Error('RATE_LIMITED');
             return '';
         };
 
