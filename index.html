@@ -1107,10 +1107,6 @@
             { msg: "忘記繳納商業登記費，罰款 $500。", amt: -500 }
         ];
         // 非同步初始化 AI 生成的機會卡（不阻塞遊戲啟動）
-        (async () => {
-            const aiCards = await genChanceCards();
-            if (aiCards && aiCards.length >= 4) CHANCE_CARDS = aiCards;
-        })();
 
         // ==========================================
         // 2. AI 功能（GLM-4-Flash）
@@ -1118,28 +1114,37 @@
         const GLM_API_KEY = '8d0aed4bd2c54761bfc6acbcc5da3cd1.28X5OyQEL0SrHS7M';
         const GLM_API_URL = 'https://open.bigmodel.cn/api/paas/v4/chat/completions';
 
+        let _glmLastCall = 0;
         const callGLM = async (systemPrompt, userPrompt, timeoutMs = 15000) => {
-            try {
-                const controller = new AbortController();
-                const timer = setTimeout(() => controller.abort(), timeoutMs);
-                const res = await fetch(GLM_API_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GLM_API_KEY}` },
-                    body: JSON.stringify({ model: 'GLM-4.7-Flash', messages: [
-                        { role: 'system', content: systemPrompt + ' 直接回答，不要輸出思考過程。' },
-                        { role: 'user', content: userPrompt }
-                    ], temperature: 0.8, max_tokens: 1000 }),
-                    signal: controller.signal
-                });
-                clearTimeout(timer);
-                if (!res.ok) { console.warn('[GLM] HTTP', res.status, await res.text().catch(()=>'')); return ''; }
-                const data = await res.json();
-                const content = data.choices?.[0]?.message?.content?.trim();
-                if (content) return content;
-                const reasoning = data.choices?.[0]?.message?.reasoning_content?.trim();
-                if (reasoning) return reasoning;
-                return '';
-            } catch (e) { console.warn('[GLM] 呼叫失敗:', e.message || e); if (e?.name==='AbortError') console.warn('[GLM] 原因: timeout'); return ''; }
+            // rate-limit throttle: at least 2s between calls
+            const sinceLast = Date.now() - _glmLastCall;
+            if (sinceLast < 2000) await new Promise(r => setTimeout(r, 2000 - sinceLast));
+            _glmLastCall = Date.now();
+            for (let attempt = 0; attempt < 2; attempt++) {
+                try {
+                    const controller = new AbortController();
+                    const timer = setTimeout(() => controller.abort(), timeoutMs);
+                    const res = await fetch(GLM_API_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GLM_API_KEY}` },
+                        body: JSON.stringify({ model: 'GLM-4.7-Flash', messages: [
+                            { role: 'system', content: systemPrompt + ' 直接回答，不要輸出思考過程。' },
+                            { role: 'user', content: userPrompt }
+                        ], temperature: 0.8, max_tokens: 1000 }),
+                        signal: controller.signal
+                    });
+                    clearTimeout(timer);
+                    if (res.status === 429 && attempt === 0) { await new Promise(r => setTimeout(r, 3000)); continue; }
+                    if (!res.ok) { console.warn('[GLM] HTTP', res.status, await res.text().catch(()=>'')); return ''; }
+                    const data = await res.json();
+                    const content = data.choices?.[0]?.message?.content?.trim();
+                    if (content) return content;
+                    const reasoning = data.choices?.[0]?.message?.reasoning_content?.trim();
+                    if (reasoning) return reasoning;
+                    return '';
+                } catch (e) { console.warn('[GLM] 呼叫失敗:', e.message || e); if (e?.name==='AbortError') console.warn('[GLM] 原因: timeout'); return ''; }
+            }
+            return '';
         };
 
         const genEconomicDesc = async (cycle) => {
@@ -1222,6 +1227,11 @@
                 { msg: "忘記繳納商業登記費，罰款 $500。", amt: -500, source: '本地' }
             ];
         };
+        // 非同步初始化 AI 生成的機會卡（不阻塞遊戲啟動）
+        (async () => {
+            const aiCards = await genChanceCards();
+            if (aiCards && aiCards.length >= 4) CHANCE_CARDS = aiCards;
+        })();
 
         // ==========================================
         // 3. Firebase 初始化與斷線重連
