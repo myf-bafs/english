@@ -1,25 +1,6 @@
 {
   "rules": {
     "artifacts": {
-      "bafs-monopoly": {
-        "public": {
-          "data": {
-            "rooms": {
-              ".read": "auth != null",
-              ".write": "auth != null",
-              "$roomId": {
-                ".validate": "newData.hasChildren(['roomCode', 'state'])"
-              }
-            }
-          }
-        },
-        "users": {
-          "$userId": {
-            ".read": "auth != null && auth.uid == $userId",
-            ".write": "auth != null && auth.uid == $userId"
-          }
-        }
-      },
       "$appId": {
         "public": {
           "data": {
@@ -27,7 +8,21 @@
               ".read": "auth != null",
               ".write": "auth != null",
               "$roomId": {
-                ".validate": "newData.hasChildren(['roomCode', 'state'])"
+                ".validate": "newData.hasChildren(['roomCode', 'state'])",
+                "roomCode": {
+                  ".validate": "newData.isString() && newData.val().length == 4"
+                },
+                "state": {
+                  ".validate": "newData.isString() && (newData.val() == 'waiting' || newData.val() == 'playing')"
+                },
+                "hostId": { ".validate": "newData.isString()" },
+                "turnIndex": { ".validate": "newData.isNumber()" },
+                "ecoCycle": { ".validate": "newData.isString()" },
+                "interestRate": { ".validate": "newData.isNumber()" },
+                "turnStartTime": { ".validate": "newData.isNumber()" },
+                "isFinished": { ".validate": "newData.isBoolean()" },
+                "duration": { ".validate": "newData.isNumber()" },
+                "endTime": { ".validate": "newData.isNumber()" }
               }
             }
           }

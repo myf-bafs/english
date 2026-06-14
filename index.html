@@ -3759,9 +3759,11 @@
                     if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
                     if(audioCtx.state === 'suspended') audioCtx.resume(); 
                 } catch(e) {}
-
+                console.log('[login] clicked, currentUser=', !!currentUser);
                 if (!currentUser) return await showModal("⚠️ 尚未連線", "<div class='p-5 text-center'>正在連線至伺服器，請稍候...</div>");
-                const name = document.getElementById('input-name').value.trim();
+                const nameInput = document.getElementById('input-name');
+                if (!nameInput) { console.error('[login] input-name not found'); return; }
+                const name = nameInput.value.trim();
                 if (!name) return await showModal("錯誤", "<div class='p-5 text-center font-bold'>請輸入董事長大名！</div>");
                 localPlayerName = name;
                 const ui = document.getElementById('user-info');
