@@ -39,7 +39,7 @@
             position: fixed;
             inset: 0;
             background: url('1.png') center/contain no-repeat;
-            opacity: 0.08;
+            opacity: 0.15;
             pointer-events: none;
             z-index: 0;
         }
@@ -605,7 +605,7 @@
 
     <main class="flex-1 relative overflow-hidden flex flex-col">
         <!-- 視圖 1: 登入 -->
-        <div id="view-login" class="absolute inset-0 flex flex-col items-center justify-center p-6 z-30 bg-slate-100">
+        <div id="view-login" class="absolute inset-0 flex flex-col items-center justify-center p-6 z-30 bg-slate-100/40">
             <div class="glass-card p-6 sm:p-8 rounded-3xl max-w-sm w-full text-center relative z-10">
                 <div class="text-6xl sm:text-7xl mb-4 drop-shadow-lg relative z-10"><i class="fa-solid fa-briefcase text-blue-600"></i></div>
                 <h2 class="text-2xl sm:text-3xl font-black text-slate-800 mb-2 relative z-10">商業帝國</h2>
@@ -616,7 +616,7 @@
         </div>
 
         <!-- 視圖 2: 遊戲大廳 -->
-<div id="view-lobby" class="absolute inset-0 flex flex-col items-center justify-start md:justify-center p-6 z-20 hidden bg-slate-100 overflow-y-auto">
+<div id="view-lobby" class="absolute inset-0 flex flex-col items-center justify-start md:justify-center p-6 z-20 hidden bg-slate-100/40 overflow-y-auto">
     <div class="glass-card p-6 sm:p-8 rounded-3xl max-w-md w-full text-center relative z-10 my-auto">
         <h2 class="text-2xl sm:text-3xl font-black text-slate-800 mb-6 relative z-10">遊戲大廳</h2>
         <div class="mb-6 p-5 bg-slate-50 rounded-2xl border border-slate-200 hover:border-blue-300 transition-colors">
