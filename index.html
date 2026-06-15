@@ -574,10 +574,6 @@
             <h1 class="text-sm md:text-2xl font-black flex items-center gap-1 md:gap-2 text-slate-800 tracking-wide whitespace-nowrap shrink-0">
                 <span class="text-lg md:text-2xl">🏦</span> <span class="hidden sm:inline">BAFS 商業大亨</span><span class="sm:hidden">BAFS大亨</span>
             </h1>
-            <!-- 實時倒數計時器 -->
-            <div id="game-timer-display" class="hidden bg-red-500 px-2 py-0.5 md:py-1 rounded text-xs md:text-sm font-mono font-bold animate-pulse text-white shadow-inner flex items-center gap-1">
-                ⏱️ <span id="timer-text">00:00</span>
-            </div>
         </div>
         
         <div class="hidden sm:flex items-center gap-1 md:gap-2">
@@ -635,11 +631,6 @@
                 
                 <!-- 時間設定 (僅限房主) -->
                 <div id="host-controls" class="hidden mb-6 p-4 bg-slate-50 rounded-2xl border border-slate-200 text-left">
-                    <label class="block text-sm font-black text-slate-600 mb-2">⏳ 設定遊戲時長 (分鐘)：</label>
-                    <div class="flex items-center gap-4">
-                        <input type="range" id="input-duration" min="5" max="60" step="5" value="20" class="flex-1 cursor-pointer accent-blue-600">
-                        <span id="duration-val" class="font-black text-blue-600 w-12 text-center text-lg font-mono">20分</span>
-                    </div>
                 </div>
 
                 <div class="flex justify-between items-end border-b-2 border-slate-100 pb-2 mb-4">
@@ -2365,7 +2356,6 @@
 
                 showView('view-game');
                 document.getElementById('game-room-code').innerText = roomState.roomCode;
-                document.getElementById('game-timer-display').classList.remove('hidden');
                 
                 const ecoEl = document.getElementById('eco-indicator');
                 ecoEl.innerText = `🌍 經濟：${roomState.ecoCycle}期`;
@@ -2393,24 +2383,7 @@
             }
         };
 
-        const updateTimerDisplay = () => {
-            if (!roomState || !roomState.endTime) return;
-            const now = Date.now();
-            const diff = roomState.endTime - now;
-            
-            if (diff <= 0) {
-                document.getElementById('timer-text').innerText = "00:00";
-                closeAllOverlays();
-                if (roomState.hostId === currentUser.uid && !roomState.isFinished) {
-                    update(getRoomRef(currentRoomId), { isFinished: true }).catch(e=>{});
-                }
-                return;
-            }
-
-            const mins = Math.floor(diff / 60000);
-            const secs = Math.floor((diff % 60000) / 1000);
-            document.getElementById('timer-text').innerText = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-        };
+        const updateTimerDisplay = () => {};
 
         const handleEndGame = () => {
             closeAllOverlays();
@@ -3625,12 +3598,6 @@
         document.addEventListener('DOMContentLoaded', () => {
             initFirebase();
 
-            const durInput = document.getElementById('input-duration');
-            const durVal = document.getElementById('duration-val');
-            if (durInput) {
-                durInput.oninput = () => { durVal.innerText = durInput.value + "分"; };
-            }
-
             document.getElementById('btn-login').onclick = async () => {
                 try {
                     if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -3714,15 +3681,11 @@
 
             document.getElementById('btn-start-game').onclick = async () => {
                 if (roomState && roomState.hostId === currentUser.uid) {
-                    const duration = parseInt(document.getElementById('input-duration').value) || 20;
-                    const endTime = Date.now() + (duration * 60 * 1000);
                     await update(getRoomRef(currentRoomId), { 
                         state: 'playing', 
-                        duration: duration,
-                        endTime: endTime,
                         isFinished: false,
                         turnStartTime: Date.now(),
-                        logs: [...roomState.logs, `🚀 市場開盤！限時 ${duration} 分鐘的財務年度展開。`] 
+                        logs: [...roomState.logs, `🚀 市場開盤！財務年度正式展開。`] 
                     });
                 }
             };
