@@ -1098,7 +1098,7 @@
             { q: "購買保險屬於哪種風險管理方法？", options: ["風險迴避", "風險減少", "風險轉移", "風險承擔"], ans: 2, exp: "保險是把風險轉移給保險公司。", topic: "B9-C6", topicTitle: "B9 第 6 章 風險管理", cat: "BM4" }
         ];
 
-        let CHANCE_CARDS = [
+        const CHANCE_CARDS = [
             { msg: "經濟繁榮，政府派發消費券，獲得 $500！", amt: 500 },
             { msg: "通貨膨脹加劇，原材料成本上升，支付 $300。", amt: -300 },
             { msg: "公司成功上市 (IPO)，籌集資金 $1000！", amt: 1000 },
@@ -1106,154 +1106,9 @@
             { msg: "贏得商業大獎，獲得獎金 $800！", amt: 800 },
             { msg: "忘記繳納商業登記費，罰款 $500。", amt: -500 }
         ];
-        // 非同步初始化 AI 生成的機會卡（不阻塞遊戲啟動）
 
         // ==========================================
-        // 2. AI 功能（GLM-4-Flash）
-        // ==========================================
-        const GLM_API_KEY = '8d0aed4bd2c54761bfc6acbcc5da3cd1.28X5OyQEL0SrHS7M';
-        const GLM_API_URL = 'https://open.bigmodel.cn/api/paas/v4/chat/completions';
-
-        // AI 背景佇列：每 20 秒處理一個任務，顯示通知
-        const _addAILog = async (msg) => {
-            if (!currentRoomId || !roomState) return;
-            try {
-                const snap = await get(getRoomRef(currentRoomId));
-                const d = snap.val();
-                if (d) await update(getRoomRef(currentRoomId), { logs: [...(d.logs||[]), msg] });
-            } catch(e) { console.warn('[AI-log]', e); }
-        };
-        const _callAI = async (label, fn) => {
-            await _addAILog(`🤖 AI 正在${label}...`);
-            try {
-                const r = await fn();
-                if (r) await _addAILog(`🤖 ${r}`);
-                else await _addAILog(`🤖 ${label}：API 暫時無法使用，保留本地內容`);
-                return r;
-            } catch (e) {
-                await _addAILog(`🤖 ${label}：錯誤 - ${e.message || e}`);
-                return null;
-            }
-        };
-
-        const callGLM = async (systemPrompt, userPrompt, timeoutMs = 15000, maxTokens = 1000) => {
-            let wasRateLimited = false;
-            for (let attempt = 0; attempt < 2; attempt++) {
-                try {
-                    const controller = new AbortController();
-                    const timer = setTimeout(() => controller.abort(), timeoutMs);
-                    const res = await fetch(GLM_API_URL, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GLM_API_KEY}` },
-                        body: JSON.stringify({ model: 'GLM-4-Flash-250414', messages: [
-                            { role: 'system', content: systemPrompt + ' 直接回答，不要輸出思考過程。' },
-                            { role: 'user', content: userPrompt }
-                        ], temperature: 0.8, max_tokens: maxTokens }),
-                        signal: controller.signal
-                    });
-                    clearTimeout(timer);
-                    if (res.status === 429) { wasRateLimited = true; await new Promise(r => setTimeout(r, 3000)); continue; }
-                    if (!res.ok) { console.warn('[GLM] HTTP', res.status, await res.text().catch(()=>'')); return ''; }
-                    const data = await res.json();
-                    const content = data.choices?.[0]?.message?.content?.trim();
-                    if (content) return content;
-                    const reasoning = data.choices?.[0]?.message?.reasoning_content?.trim();
-                    if (reasoning) return reasoning;
-                    return '';
-                } catch (e) { console.warn('[GLM] 呼叫失敗:', e.message || e); if (e?.name==='AbortError') console.warn('[GLM] 原因: timeout'); return ''; }
-            }
-            if (wasRateLimited) throw new Error('RATE_LIMITED');
-            return '';
-        };
-
-        const genChanceCards = async () => {
-            const fallbackCards = [
-                { msg: "經濟繁榮，政府派發消費券，獲得 $500！", amt: 500, source: '本地' },
-                { msg: "通貨膨脹加劇，原材料成本上升，支付 $300。", amt: -300, source: '本地' },
-                { msg: "公司成功上市 (IPO)，籌集資金 $1000！", amt: 1000, source: '本地' },
-                { msg: "勞工處巡查發現違規，罰款 $400。", amt: -400, source: '本地' },
-                { msg: "贏得商業大獎，獲得獎金 $800！", amt: 800, source: '本地' },
-                { msg: "忘記繳納商業登記費，罰款 $500。", amt: -500, source: '本地' }
-            ];
-            const text = await _callAI('產生機會卡', () => callGLM('你是一位遊戲設計師。產生 6 條「機會卡」訊息（繁體中文），用於大富翁式商業遊戲。每條訊息需包含正面或負面的金錢影響（正數為獲得金錢，負數為支付金錢）。格式：每行一條「訊息|金額」。例如：\n中了彩票，獲得 $1000！|1000\n\n請確保涵蓋不同的商業情景，金額範圍在 200-1200 之間。', '請產生 6 條機會卡訊息。'));
-            if (text) {
-                const cards = text.split('\n').map(line => {
-                    const parts = line.split('|');
-                    if (parts.length === 2) {
-                        const amt = parseInt(parts[1]);
-                        if (!isNaN(amt)) return { msg: parts[0].trim(), amt, source: 'AI' };
-                    }
-                    return null;
-                }).filter(Boolean);
-                if (cards.length >= 4) { CHANCE_CARDS = cards; return cards; }
-            }
-            return fallbackCards;
-        };
-        // 非同步初始化 AI 生成的機會卡（不阻塞遊戲啟動）
-        (async () => {
-            const aiCards = await genChanceCards();
-            if (aiCards && aiCards.length >= 4) CHANCE_CARDS = aiCards;
-        })();
-
-        const genAIMarketEvents = async (stocks, players, ecoCycle, interestRate) => {
-            const stockSummary = Object.entries(stocks)
-                .filter(([,s]) => s.status !== 'delisted')
-                .map(([k,s]) => `${k}:${s.name}(${s.status === 'active' ? '交易中' : '停牌'},$${s.price})`)
-                .join('；');
-            const prompt = `即時市場概況：
-經濟週期：${ecoCycle}
-基準利率：${interestRate}%
-活躍投資者：${players.length} 人
-上市股票：${stockSummary}
-
-產生 1-3 個市場事件。規則：
-- ECO_CYCLE 和 RATE_CHANGE 每回合最多各 1 次
-- SURGE/CRASH 選不同股票，不要一直選同一支
-- 同一回合不要對同一支股票重複出事件
-
-可選類型：
-- ECO_CYCLE：變更經濟週期（NEW_CYCLE=繁榮/復甦/衰退/蕭條）
-- RATE_CHANGE：調整基準利率（NEW_RATE=5~25）
-- NEW_STOCK：新增股票（NAME、PRICE 50~300、SECTOR）
-- DELIST：股票除牌（SYMBOL）
-- SUSPEND：股票停牌（SYMBOL）
-- REINSTATE：停牌股恢復交易（SYMBOL）
-- SURGE：重大利好（SYMBOL、EFFECT ±10~80）
-- CRASH：重大利空（SYMBOL、EFFECT ±10~80）
-
-每個事件格式：
----EVENT---
-TYPE: 類型
-SYMBOL: 代號（ECO_CYCLE/RATE_CHANGE/NEW_STOCK 不需要）
-NEW_CYCLE: （僅 ECO_CYCLE）
-NEW_RATE: 數字（僅 RATE_CHANGE）
-NAME: （僅 NEW_STOCK）
-PRICE: 數字（僅 NEW_STOCK）
-SECTOR: （僅 NEW_STOCK）
-EFFECT: ±數字（僅 SURGE/CRASH）
-TITLE: 標題
-DESC: 描述（50字內）`;
-            const text = await _callAI('產生市場動態', () => callGLM(
-                '你是一個財經遊戲的市場管理員。'
-                + '規則：每次選擇不同股票產生事件，不要重複選同一支。'
-                + '讓事件多樣化，涵蓋各種類型和不同股票。'
-                + '嚴格按照格式輸出，不要輸出思考過程。',
-                prompt, 20000, 1800
-            ));
-            if (!text) return [];
-            return text.split('---EVENT---').map(block => {
-                const lines = block.trim().split('\n');
-                const evt = {};
-                for (const line of lines) {
-                    const idx = line.indexOf(':');
-                    if (idx > 0) evt[line.slice(0, idx).trim()] = line.slice(idx + 1).trim();
-                }
-                return evt;
-            }).filter(e => e.TYPE && ['ECO_CYCLE','RATE_CHANGE','NEW_STOCK','DELIST','SUSPEND','REINSTATE','SURGE','CRASH'].includes(e.TYPE));
-        };
-
-        // ==========================================
-        // 3. Firebase 初始化與斷線重連
+        // 2. Firebase 初始化與斷線重連
         // ==========================================
         let db, auth, currentUser, currentRoomId;
         let localPlayerName = "";
@@ -2468,11 +2323,8 @@ DESC: 描述（50字內）`;
                     <div class="p-6 bg-slate-50 rounded-2xl border border-slate-200 mt-2 text-center shadow-inner">
                         <h3 class="text-xl font-black text-slate-800 mb-4">${roomState.globalEvent.title}</h3>
                         <p class="text-slate-700 font-bold text-sm mb-6 leading-relaxed text-justify">${roomState.globalEvent.desc}</p>
-                        <div class="flex items-center justify-center gap-3">
-                            <div class="bg-indigo-50 text-indigo-700 p-3 rounded-xl border border-indigo-100 font-bold flex items-center justify-center gap-2 shadow-sm">
-                                <i class="fa-solid fa-bolt"></i> 影響：${roomState.globalEvent.impact}
-                            </div>
-                            <span class="text-[10px] font-mono font-black px-2 py-1 rounded-full ${roomState.globalEvent._ai ? 'bg-purple-100 text-purple-700 border border-purple-300' : 'bg-slate-200 text-slate-600 border border-slate-300'} whitespace-nowrap">${roomState.globalEvent._ai ? '🤖 AI' : '💻 本端'}</span>
+                        <div class="bg-indigo-50 text-indigo-700 p-3 rounded-xl border border-indigo-100 font-bold flex items-center justify-center gap-2 shadow-sm">
+                            <i class="fa-solid fa-bolt"></i> 影響：${roomState.globalEvent.impact}
                         </div>
                     </div>
                 `, [{text: '我已瞭解', style: 'bg-blue-600 hover:bg-blue-500 w-full py-3 shadow-lg', resolveWith: true}]);
@@ -2771,133 +2623,64 @@ DESC: 描述（50字內）`;
             
             if (nextTurnIndex > 0 && nextTurnIndex % players.length === 0) {
                 let triggerEvent = null;
-                let newStocks = {...roomState.stocks};
-                let stockEvents = [];
 
-                // AI 主導所有市場動態
-                const aiEvents = await genAIMarketEvents(newStocks, players, roomState.ecoCycle, roomState.interestRate);
-                if (aiEvents.length > 0) {
-                    for (const evt of aiEvents) {
-                        const sym = evt.SYMBOL;
-                        switch (evt.TYPE) {
-                            case 'ECO_CYCLE': {
-                                const cycles = ['繁榮','復甦','衰退','蕭條'];
-                                const nc = evt.NEW_CYCLE;
-                                if (cycles.includes(nc) && nc !== roomState.ecoCycle) {
-                                    updates.ecoCycle = nc;
-                                    logs.push(`🌍 【經濟轉型】${evt.DESC || `全球經濟進入『${nc}』期。`}`);
-                                    if (!triggerEvent) triggerEvent = { id: Date.now(), title: `🌍 全球經濟進入『${nc}』期`, desc: evt.DESC || `經濟週期轉變為 ${nc}。`, _ai: true, impact: '整體租金收益及資產估值全面調整' };
-                                }
-                                break;
+                if (Math.random() < 0.25) { 
+                    let currIdx = ECO_PHASES.indexOf(roomState.ecoCycle);
+                    let nextCycle = ECO_PHASES[(currIdx + 1) % ECO_PHASES.length];
+                    updates.ecoCycle = nextCycle;
+                    logs.push(`🌍 【經濟轉型】全球經濟進入『${nextCycle}』期。`);
+                    
+                    let desc = "";
+                    if (nextCycle === '繁榮') desc = "政府宣佈大規模量化寬鬆，市場資金氾濫。市民消費力道強勁，整體企業利潤預計大幅上揚，推動地產與股市估值攀升！";
+                    if (nextCycle === '復甦') desc = "經濟逐漸走出谷底，就業率穩步回升，市場氣氛轉趨樂觀，企業開始重新規劃資本擴張。";
+                    if (nextCycle === '衰退') desc = "通膨高企導致央行收緊銀根，企業獲利指引全面下調，市場流動性開始枯竭，投資者應提高警覺。";
+                    if (nextCycle === '蕭條') desc = "金融風暴席捲全球！大量企業面臨破產邊緣，失業率飆升，所有資產價格暴跌，銀行放貸極度保守。";
+                    triggerEvent = { id: Date.now(), title: `🌍 全球經濟進入『${nextCycle}』期`, desc: desc, impact: "整體租金收益及資產估值全面調整" };
+                }
+                
+                let newStocks = {...roomState.stocks};
+                let topMover = null; let topChange = 0;
+                Object.keys(newStocks).forEach(k => {
+                    let change = (Math.random() * 0.5) - 0.25;
+                    if (updates.ecoCycle === '繁榮' || roomState.ecoCycle === '繁榮') change += 0.1;
+                    if (updates.ecoCycle === '蕭條' || roomState.ecoCycle === '蕭條') change -= 0.15;
+                    newStocks[k].price = Math.max(10, Math.floor(newStocks[k].price * (1 + change)));
+                    if (Math.abs(change) > Math.abs(topChange)) { topChange = change; topMover = k; }
+                });
+                // Normalize: ensure all stocks have a status field (migrate old rooms)
+                Object.keys(newStocks).forEach(k => { if (!newStocks[k].status) newStocks[k].status = 'active'; });
+                // Stock status changes (suspension/delisting/listing)
+                let stockEvents = [];
+                Object.keys(newStocks).forEach(k => {
+                    let st = newStocks[k];
+                    if (st.status === 'delisted') return;
+                    if (st.status === 'active' && Math.random() < 0.06) {
+                        st.status = 'suspended'; st.price = Math.max(10, Math.floor(st.price * 0.7));
+                        stockEvents.push({ id: Date.now() + Math.random(), title: `🚦 ${st.name} 即日起停牌`, desc: `監管機構因 ${st.name} 涉嫌違規操作，宣佈其股票即日起暫停交易，股價暴跌 30%。`, impact: `${st.name} 暫時無法進行買賣` });
+                    } else if (st.status === 'suspended' && Math.random() < 0.4) {
+                        st.status = 'active'; st.price = Math.floor(st.price * 1.2);
+                        stockEvents.push({ id: Date.now() + Math.random(), title: `✅ ${st.name} 獲準復牌`, desc: `經過整改後，${st.name} 已符合監管要求，即日起恢復正常交易，復牌首日股價大漲 20%。`, impact: `${st.name} 恢復正常交易` });
+                    } else if (st.status === 'suspended' && Math.random() < 0.15) {
+                        st.status = 'delisted';
+                        stockEvents.push({ id: Date.now() + Math.random(), title: `🚫 ${st.name} 正式除牌`, desc: `因持續違規及財務狀況惡化，${st.name} 被強制從交易所除牌，所有持股將淪為壁紙。`, impact: `${st.name} 永久下市，持股價值歸零` });
+                        players.forEach(p => {
+                            for (let s in p.portfolio) {
+                                if (newStocks[s] && newStocks[s].name === st.name) { p.portfolio[s].qty = 0; p.portfolio[s].avg = 0; }
                             }
-                            case 'RATE_CHANGE': {
-                                const nr = parseInt(evt.NEW_RATE);
-                                if (nr >= 5 && nr <= 25 && nr !== roomState.interestRate) {
-                                    updates.interestRate = nr;
-                                    logs.push(`🏦 市場利率調整為 ${nr}%。`);
-                                    if (!triggerEvent) triggerEvent = { id: Date.now() + 2, title: `🏦 央行調整基準利率`, desc: evt.DESC || `基準利率調整至 ${nr}%。`, _ai: true, impact: '借貸成本將受直接影響' };
-                                }
-                                break;
-                            }
-                            case 'NEW_STOCK': {
-                                const name = evt.NAME || '新創企業';
-                                if (Object.values(newStocks).some(s => s.name === name)) break;
-                                const nsym = 'ipo_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
-                                const price = Math.max(50, Math.min(300, parseInt(evt.PRICE) || 100));
-                                newStocks[nsym] = { name, price, status: 'active' };
-                                stockEvents.push({ id: Date.now() + Math.random(), title: `🚀 ${name} 火熱上市`, desc: evt.DESC || `${name} 正式掛牌上市，發行價 $${price}`, _ai: true, impact: `${name} 已開放交易` });
-                                logs.push(`📰 【新股上市】${name} 上市，發行價 $${price}`);
-                                break;
-                            }
-                            case 'DELIST': {
-                                if (!sym || !newStocks[sym] || newStocks[sym].status === 'delisted') break;
-                                const stD = newStocks[sym];
-                                stD.status = 'delisted';
-                                stockEvents.push({ id: Date.now() + Math.random(), title: `🚫 ${stD.name} 正式除牌`, desc: evt.DESC || `${stD.name} 被強制除牌`, _ai: true, impact: `${stD.name} 永久下市，持股價值歸零` });
-                                players.forEach(p => { if (p.portfolio[sym]) { p.portfolio[sym].qty = 0; p.portfolio[sym].avg = 0; } });
-                                logs.push(`💸 ${stD.name} 除牌，所有持股化為壁紙。`);
-                                break;
-                            }
-                            case 'SUSPEND': {
-                                if (!sym || !newStocks[sym] || newStocks[sym].status !== 'active') break;
-                                newStocks[sym].status = 'suspended';
-                                newStocks[sym].price = Math.max(10, Math.floor(newStocks[sym].price * 0.7));
-                                stockEvents.push({ id: Date.now() + Math.random(), title: `🚦 ${newStocks[sym].name} 即日起停牌`, desc: evt.DESC || `${newStocks[sym].name} 被暫停交易`, _ai: true, impact: `${newStocks[sym].name} 暫時無法進行買賣` });
-                                break;
-                            }
-                            case 'REINSTATE': {
-                                if (!sym || !newStocks[sym] || newStocks[sym].status !== 'suspended') break;
-                                newStocks[sym].status = 'active';
-                                newStocks[sym].price = Math.floor(newStocks[sym].price * 1.2);
-                                stockEvents.push({ id: Date.now() + Math.random(), title: `✅ ${newStocks[sym].name} 獲準復牌`, desc: evt.DESC || `${newStocks[sym].name} 恢復正常交易`, _ai: true, impact: `${newStocks[sym].name} 恢復正常交易` });
-                                break;
-                            }
-                            case 'SURGE': {
-                                if (!sym || !newStocks[sym] || newStocks[sym].status !== 'active') break;
-                                const effectS = Math.max(10, Math.min(80, parseInt(evt.EFFECT) || 30));
-                                newStocks[sym].price = Math.floor(newStocks[sym].price * (1 + effectS / 100));
-                                stockEvents.push({ id: Date.now() + Math.random(), title: evt.TITLE || `📈 ${newStocks[sym].name} 重大利好`, desc: evt.DESC || `${newStocks[sym].name} 股價飆升 ${effectS}%`, _ai: true, impact: `${newStocks[sym].name} 股價大漲 ${effectS}%` });
-                                break;
-                            }
-                            case 'CRASH': {
-                                if (!sym || !newStocks[sym] || newStocks[sym].status !== 'active') break;
-                                const effectC = Math.max(10, Math.min(80, parseInt(evt.EFFECT) || 30));
-                                newStocks[sym].price = Math.max(10, Math.floor(newStocks[sym].price * (1 - effectC / 100)));
-                                stockEvents.push({ id: Date.now() + Math.random(), title: evt.TITLE || `📉 ${newStocks[sym].name} 爆發危機`, desc: evt.DESC || `${newStocks[sym].name} 股價暴跌 ${effectC}%`, _ai: true, impact: `${newStocks[sym].name} 股價大跌 ${effectC}%` });
-                                break;
-                            }
-                        }
+                        });
+                        logs.push(`💸 ${st.name} 除牌，所有持股化為壁紙。`);
                     }
-                    // Stock price fluctuation based on AI-changed eco cycle
-                    let eco = updates.ecoCycle || roomState.ecoCycle;
-                    Object.keys(newStocks).forEach(k => {
-                        let change = (Math.random() * 0.5) - 0.25;
-                        if (eco === '繁榮') change += 0.1;
-                        if (eco === '蕭條') change -= 0.15;
-                        newStocks[k].price = Math.max(10, Math.floor(newStocks[k].price * (1 + change)));
-                    });
-                    Object.keys(newStocks).forEach(k => { if (!newStocks[k].status) newStocks[k].status = 'active'; });
-                } else {
-                    // AI 失敗，使用機率系統（所有市場動態）
-                    if (Math.random() < 0.25) {
-                        let currIdx = ECO_PHASES.indexOf(roomState.ecoCycle);
-                        let nextCycle = ECO_PHASES[(currIdx + 1) % ECO_PHASES.length];
-                        updates.ecoCycle = nextCycle;
-                        logs.push(`🌍 【經濟轉型】全球經濟進入『${nextCycle}』期。`);
-                        if (!triggerEvent) triggerEvent = { id: Date.now(), title: `🌍 全球經濟進入『${nextCycle}』期`, desc: nextCycle === '繁榮' ? '政府宣佈大規模量化寬鬆...' : nextCycle === '復甦' ? '經濟逐漸走出谷底...' : nextCycle === '衰退' ? '通膨高企導致央行收緊銀根...' : '金融風暴席捲全球！...', _ai: false, impact: '整體租金收益及資產估值全面調整' };
-                    }
-                    Object.keys(newStocks).forEach(k => {
-                        let change = (Math.random() * 0.5) - 0.25;
-                        if (updates.ecoCycle === '繁榮' || roomState.ecoCycle === '繁榮') change += 0.1;
-                        if (updates.ecoCycle === '蕭條' || roomState.ecoCycle === '蕭條') change -= 0.15;
-                        newStocks[k].price = Math.max(10, Math.floor(newStocks[k].price * (1 + change)));
-                    });
-                    Object.keys(newStocks).forEach(k => { if (!newStocks[k].status) newStocks[k].status = 'active'; });
-                    // Fallback stock status changes
-                    for (const k of Object.keys(newStocks)) {
-                        let st = newStocks[k];
-                        if (st.status === 'delisted') continue;
-                        if (st.status === 'active' && Math.random() < 0.06) {
-                            st.status = 'suspended'; st.price = Math.max(10, Math.floor(st.price * 0.7));
-                            stockEvents.push({ id: Date.now() + Math.random(), title: `🚦 ${st.name} 即日起停牌`, desc: `${st.name} 因涉嫌違規操作被監管機構暫停交易，股價暴跌 30%。`, _ai: false, impact: `${st.name} 暫時無法進行買賣` });
-                        } else if (st.status === 'suspended' && Math.random() < 0.4) {
-                            st.status = 'active'; st.price = Math.floor(st.price * 1.2);
-                            stockEvents.push({ id: Date.now() + Math.random(), title: `✅ ${st.name} 獲準復牌`, desc: `${st.name} 已完成整改獲準恢復交易，復牌首日股價大漲 20%。`, _ai: false, impact: `${st.name} 恢復正常交易` });
-                        } else if (st.status === 'suspended' && Math.random() < 0.15) {
-                            st.status = 'delisted';
-                            stockEvents.push({ id: Date.now() + Math.random(), title: `🚫 ${st.name} 正式除牌`, desc: `${st.name} 因持續違規及財務狀況惡化被強制除牌，所有持股將淪為壁紙。`, _ai: false, impact: `${st.name} 永久下市，持股價值歸零` });
-                            players.forEach(p => { for (let s in p.portfolio) { if (newStocks[s] && newStocks[s].name === st.name) { p.portfolio[s].qty = 0; p.portfolio[s].avg = 0; } } });
-                            logs.push(`💸 ${st.name} 除牌，所有持股化為壁紙。`);
-                        }
-                    }
-                    let activeCount = Object.keys(newStocks).filter(k => newStocks[k].status === 'active').length;
-                    if (activeCount < 5 && Math.random() < 0.5) {
-                        let newSym = 'ipo_' + Date.now();
-                        let fallbackNames = ['創科未來', '綠能動力', '元宇宙地產', 'AI驅動', '生物製藥', '太空探索', '區塊鍊金', '電芯革命', '量子信息', '深海資源'];
-                        let avail = fallbackNames.filter(n => !Object.values(newStocks).some(s => s.name === n));
-                        let newName = avail.length > 0 ? avail[Math.floor(Math.random() * avail.length)] : '新創企業';
+                });
+                // IPO: new stock listing when active count is low
+                let activeCount = Object.keys(newStocks).filter(k => newStocks[k].status === 'active').length;
+                if (activeCount < 5 && Math.random() < 0.5) {
+                    let newSym = 'ipo_' + Date.now();
+                    let newNames = ['創科未來', '綠能動力', '元宇宙地產', 'AI驅動', '生物製藥', '太空探索', '區塊鍊金', '電芯革命', '量子信息', '深海資源'];
+                    let availNames = newNames.filter(n => !Object.values(newStocks).some(s => s.name === n));
+                    if (availNames.length > 0) {
+                        let newName = availNames[Math.floor(Math.random() * availNames.length)];
                         newStocks[newSym] = { name: newName, price: 80 + Math.floor(Math.random() * 120), status: 'active' };
-                        stockEvents.push({ id: Date.now() + Math.random(), title: `🚀 ${newName} 火熱上市`, desc: `${newName} 今日在交易所正式掛牌上市，發行價 $${newStocks[newSym].price}，市場反應熱烈。`, _ai: false, impact: `${newName} 已開放交易` });
+                        stockEvents.push({ id: Date.now() + Math.random(), title: `🚀 ${newName} 火熱上市`, desc: `${newName} 今日在交易所正式掛牌上市，發行價 $${newStocks[newSym].price}，市場反應熱烈。`, impact: `${newName} 已開放交易` });
                     }
                 }
                 updates.stocks = newStocks;
@@ -2954,12 +2737,31 @@ DESC: 描述（50字內）`;
                 });
 
                 if (stockEvents.length > 0) {
-                    stockEvents.forEach(se => logs.push(`📰 【股票事件】${se.title}`));
-                    if (!triggerEvent) triggerEvent = stockEvents[0];
+                    let se = stockEvents[0];
+                    logs.push(`📰 【股票事件】${se.title}`);
+                    if (!triggerEvent) triggerEvent = se;
                 }
 
-                if (!triggerEvent) {
-                    triggerEvent = { id: Date.now(), title: '📊 本日市場總結', desc: '市場整體交易平穩，無重大事件發生。', _ai: false, impact: '市場表現平穩' };
+                if (!triggerEvent && Math.random() < 0.3 && topMover) {
+                    let s = newStocks[topMover];
+                    let isPositive = topChange > 0;
+                    let title = isPositive ? `📈 ${s.name} 宣佈重大利好` : `📉 ${s.name} 爆發經營危機`;
+                    let desc = isPositive 
+                        ? `該公司最新財報遠超市場預期，並宣佈取得劃時代的技術突破，吸引大量國際機構投資者瘋狂掃貨，股價應聲暴漲！`
+                        : `內部吹哨人爆料該公司存在嚴重財務造假，管理層遭監管機構徹夜帶走調查，引發市場恐慌性拋售，股價雪崩！`;
+                    triggerEvent = { id: Date.now() + 1, title, desc, impact: `${s.name} 股價劇烈波動 (${isPositive ? '+' : ''}${Math.round(topChange*100)}%)` };
+                }
+
+                let newRate = roomState.interestRate;
+                if(Math.random() < 0.3) {
+                    newRate = Math.max(5, Math.min(25, newRate + (Math.random()>0.5?5:-5)));
+                    if(newRate !== roomState.interestRate) {
+                        updates.interestRate = newRate;
+                        logs.push(`🏦 市場利率調整為 ${newRate}%。`);
+                        if (!triggerEvent) {
+                            triggerEvent = { id: Date.now() + 2, title: `🏦 央行調整基準利率`, desc: `為了應對當前的通膨與經濟數據，中央銀行宣佈最新貨幣政策，將市場基準利率即時調整至 ${newRate}%。`, impact: `借貸成本將受直接影響` };
+                        }
+                    }
                 }
 
                 if (triggerEvent) updates.globalEvent = triggerEvent;
@@ -3556,7 +3358,7 @@ DESC: 描述（50字內）`;
             else if (tile.type === 'chance' || tile.type === 'destiny') {
                 const card = CHANCE_CARDS[Math.floor(Math.random() * CHANCE_CARDS.length)];
                 if (card.amt < 0) sfx.error(); else sfx.success();
-                await showModal(`🌟 ${tile.name}`, `<div class="relative text-xl text-center p-8 text-purple-700 font-black bg-purple-50 rounded-2xl border-2 border-purple-100 shadow-inner">${card.msg}<span class="absolute bottom-2 right-3 text-[10px] font-mono font-black px-1.5 py-0.5 rounded-full ${card.source === 'AI' ? 'bg-purple-200 text-purple-800' : 'bg-slate-200 text-slate-500'}">${card.source === 'AI' ? '🤖AI' : '💻本端'}</span></div>`);
+                await showModal(`🌟 ${tile.name}`, `<div class="text-xl text-center p-8 text-purple-700 font-black bg-purple-50 rounded-2xl border-2 border-purple-100 shadow-inner">${card.msg}</div>`);
                 
                 if (card.amt < 0 && (player.insurances.comprehensive || player.insurances.accident)) {
                     if(player.insurances.accident) player.insurances.accident = false; else player.insurances.comprehensive = false;
@@ -3834,7 +3636,7 @@ DESC: 描述（50字內）`;
                     if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
                     if(audioCtx.state === 'suspended') audioCtx.resume(); 
                 } catch(e) {}
-                console.log('[login] clicked, currentUser=', !!currentUser);
+
                 if (!currentUser) return await showModal("⚠️ 尚未連線", "<div class='p-5 text-center'>正在連線至伺服器，請稍候...</div>");
                 const nameInput = document.getElementById('input-name');
                 if (!nameInput) { console.error('[login] input-name not found'); return; }
