@@ -2770,6 +2770,7 @@
         };
 
         const checkAndFinalizeTurn = async (playerData, pIndex, logs) => {
+            window._isRolling = false;
             const totalAssets = playerData.money + getStockValue(playerData) + getPropertyValue(playerData.uid) + getFundValue(playerData);
             let ratioCrisis = false;
             
@@ -3295,6 +3296,8 @@
         };
 
         document.getElementById('btn-roll').onclick = async () => {
+            if (window._isRolling) return;
+            window._isRolling = true;
             const pIdx = roomState.turnIndex % roomState.players.length; let player = {...roomState.players[pIdx]};
             
             // 延長回合時限以防在動畫或結算途中被系統 Skip
@@ -3783,10 +3786,10 @@
                                         sfx.error();
                                         
                                         processEndOfTurnAndUpdate(activePlayer, roomState.turnIndex % roomState.players.length, logs).finally(() => {
-                                            setTimeout(() => { window.isSkippingTurn = false; }, 1000);
+                                            setTimeout(() => { window.isSkippingTurn = false; window._isRolling = false; }, 1000);
                                         });
                                     } else {
-                                        window.isSkippingTurn = false;
+                                        window.isSkippingTurn = false; window._isRolling = false;
                                     }
                                 }, delay);
                             }
