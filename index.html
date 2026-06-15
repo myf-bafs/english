@@ -1133,7 +1133,7 @@
             } catch { return null; }
         };
 
-        const callGLM = async (systemPrompt, userPrompt, timeoutMs = 15000) => {
+        const callGLM = async (systemPrompt, userPrompt, timeoutMs = 15000, maxTokens = 1000) => {
             let wasRateLimited = false;
             for (let attempt = 0; attempt < 2; attempt++) {
                 try {
@@ -1145,7 +1145,7 @@
                         body: JSON.stringify({ model: 'GLM-4-Flash-250414', messages: [
                             { role: 'system', content: systemPrompt + ' 直接回答，不要輸出思考過程。' },
                             { role: 'user', content: userPrompt }
-                        ], temperature: 0.8, max_tokens: 1000 }),
+                        ], temperature: 0.8, max_tokens: maxTokens }),
                         signal: controller.signal
                     });
                     clearTimeout(timer);
@@ -1173,25 +1173,6 @@
             const text = await _callAI('分析經濟週期', () => callGLM('你是一位財經新聞編輯，擅長用精簡的繁體中文撰寫經濟報導。只回覆新聞內容本身。', `全球經濟進入「${cycle}」期，請用 30-50 字描述這個階段的宏觀經濟狀況與市場氣氛。`));
             if (text) return { text, fromAI: true };
             return { text: fallback, fromAI: false };
-        };
-
-        const genStockEventDesc = async (stockName, eventType) => {
-            const prompt = eventType === 'suspend' ? `上市公司「${stockName}」因涉嫌違規操作被監管機構暫停交易` :
-                          eventType === 'reinstate' ? `上市公司「${stockName}」已完成整改獲准恢復交易` :
-                          `上市公司「${stockName}」因持續違規及財務惡化被強制除牌`;
-            const fallback = (
-                eventType === 'suspend' ? `監管機構因 ${stockName} 涉嫌違規操作，宣佈其股票即日起暫停交易，股價暴跌 30%。` :
-                eventType === 'reinstate' ? `經過整改後，${stockName} 已符合監管要求，即日起恢復正常交易，復牌首日股價大漲 20%。` :
-                `因持續違規及財務狀況惡化，${stockName} 被強制從交易所除牌，所有持股將淪為壁紙。`
-            );
-            const text = await _callAI(`分析${stockName}事件`, () => callGLM('你是一位財經記者，用繁體中文報導股市事件。只回覆新聞內容，30-50字。', prompt));
-            if (text) return { text, fromAI: true };
-            return { text: fallback, fromAI: false };
-        };
-
-        const genIPOCompanyName = async () => {
-            const text = await _callAI('為新股命名', () => callGLM('你是一位企業顧問，為新創公司命名。只回覆公司名稱，2-4個繁體中文字，不要標點符號。', '請產生一個創新的香港公司名稱，適合一家即將上市的新創企業。'));
-            return text || '';
         };
 
         const genTopMoverDesc = async (stockName, change, isPositive) => {
@@ -1238,6 +1219,51 @@
             const aiCards = await genChanceCards();
             if (aiCards && aiCards.length >= 4) CHANCE_CARDS = aiCards;
         })();
+
+        const genAIMarketEvents = async (stocks, players, ecoCycle, interestRate) => {
+            const stockSummary = Object.entries(stocks)
+                .filter(([,s]) => s.status !== 'delisted')
+                .map(([k,s]) => `${k}:${s.name}(${s.status === 'active' ? '交易中' : '停牌'},$${s.price})`)
+                .join('；');
+            const prompt = `即時市場概況：
+經濟週期：${ecoCycle}
+基準利率：${interestRate}%
+活躍投資者：${players.length} 人
+上市股票：${stockSummary}
+
+根據當前市場狀況產生 0-3 個股票事件。可能的類型：
+- NEW_STOCK：新增一檔股票（附 NAME、PRICE 50~300、SECTOR）
+- DELIST：將某股票除牌（附 SYMBOL、REASON）
+- SUSPEND：暫停某股票交易（附 SYMBOL、REASON）
+- REINSTATE：讓停牌股票恢復交易（附 SYMBOL、REASON）
+- SURGE：某股票重大利好（附 SYMBOL、EFFECT 數字百分比、REASON）
+- CRASH：某股票重大利空（附 SYMBOL、EFFECT 數字百分比、REASON）
+
+每個事件格式：
+---EVENT---
+TYPE: 類型
+SYMBOL: 代號（NEW_STOCK 不需要）
+NAME: （僅 NEW_STOCK）
+PRICE: （僅 NEW_STOCK，數字）
+SECTOR: （僅 NEW_STOCK）
+EFFECT: ±數字（僅 SURGE/CRASH）
+TITLE: 標題（20字內）
+DESC: 描述（50字內）`;
+            const text = await _callAI('分析市場事件', () => callGLM(
+                '你是一個財經遊戲的市場管理員，根據市場狀況產生股票事件。嚴格按照格式輸出，不要輸出思考過程。',
+                prompt, 20000, 1500
+            ));
+            if (!text) return [];
+            return text.split('---EVENT---').map(block => {
+                const lines = block.trim().split('\n');
+                const evt = {};
+                for (const line of lines) {
+                    const idx = line.indexOf(':');
+                    if (idx > 0) evt[line.slice(0, idx).trim()] = line.slice(idx + 1).trim();
+                }
+                return evt;
+            }).filter(e => e.TYPE && ['NEW_STOCK','DELIST','SUSPEND','REINSTATE','SURGE','CRASH'].includes(e.TYPE));
+        };
 
         // ==========================================
         // 3. Firebase 初始化與斷線重連
@@ -2780,43 +2806,93 @@
                 });
                 // Normalize: ensure all stocks have a status field (migrate old rooms)
                 Object.keys(newStocks).forEach(k => { if (!newStocks[k].status) newStocks[k].status = 'active'; });
-                // Stock status changes (suspension/delisting/listing)
+                // AI-driven market events (stock status changes, IPO, special events)
                 let stockEvents = [];
-                for (const k of Object.keys(newStocks)) {
-                    let st = newStocks[k];
-                    if (st.status === 'delisted') continue;
-                    if (st.status === 'active' && Math.random() < 0.06) {
-                        st.status = 'suspended'; st.price = Math.max(10, Math.floor(st.price * 0.7));
-                        const { text: suspendDesc, fromAI: suspendAI } = await genStockEventDesc(st.name, 'suspend');
-                        stockEvents.push({ id: Date.now() + Math.random(), title: `🚦 ${st.name} 即日起停牌`, desc: suspendDesc, _ai: suspendAI, impact: `${st.name} 暫時無法進行買賣` });
-                    } else if (st.status === 'suspended' && Math.random() < 0.4) {
-                        st.status = 'active'; st.price = Math.floor(st.price * 1.2);
-                        const { text: reinstateDesc, fromAI: reinstateAI } = await genStockEventDesc(st.name, 'reinstate');
-                        stockEvents.push({ id: Date.now() + Math.random(), title: `✅ ${st.name} 獲準復牌`, desc: reinstateDesc, _ai: reinstateAI, impact: `${st.name} 恢復正常交易` });
-                    } else if (st.status === 'suspended' && Math.random() < 0.15) {
-                        st.status = 'delisted';
-                        const { text: delistDesc, fromAI: delistAI } = await genStockEventDesc(st.name, 'delist');
-                        stockEvents.push({ id: Date.now() + Math.random(), title: `🚫 ${st.name} 正式除牌`, desc: delistDesc, _ai: delistAI, impact: `${st.name} 永久下市，持股價值歸零` });
-                        players.forEach(p => {
-                            for (let s in p.portfolio) {
-                                if (newStocks[s] && newStocks[s].name === st.name) { p.portfolio[s].qty = 0; p.portfolio[s].avg = 0; }
+                const aiEvents = await genAIMarketEvents(newStocks, players, updates.ecoCycle || roomState.ecoCycle, updates.interestRate || roomState.interestRate);
+                if (aiEvents.length > 0) {
+                    for (const evt of aiEvents) {
+                        const sym = evt.SYMBOL;
+                        switch (evt.TYPE) {
+                            case 'NEW_STOCK': {
+                                const name = evt.NAME || '新創企業';
+                                if (Object.values(newStocks).some(s => s.name === name)) break;
+                                const nsym = 'ipo_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
+                                const price = Math.max(50, Math.min(300, parseInt(evt.PRICE) || 100));
+                                newStocks[nsym] = { name, price, status: 'active' };
+                                stockEvents.push({ id: Date.now() + Math.random(), title: `🚀 ${name} 火熱上市`, desc: evt.DESC || `${name} 正式掛牌上市，發行價 $${price}`, _ai: true, impact: `${name} 已開放交易` });
+                                logs.push(`📰 【新股上市】${name} 上市，發行價 $${price}`);
+                                break;
                             }
-                        });
-                        logs.push(`💸 ${st.name} 除牌，所有持股化為壁紙。`);
+                            case 'DELIST': {
+                                if (!sym || !newStocks[sym] || newStocks[sym].status === 'delisted') break;
+                                const st = newStocks[sym];
+                                st.status = 'delisted';
+                                stockEvents.push({ id: Date.now() + Math.random(), title: `🚫 ${st.name} 正式除牌`, desc: evt.DESC || `${st.name} 被強制除牌`, _ai: true, impact: `${st.name} 永久下市，持股價值歸零` });
+                                players.forEach(p => { if (p.portfolio[sym]) { p.portfolio[sym].qty = 0; p.portfolio[sym].avg = 0; } });
+                                logs.push(`💸 ${st.name} 除牌，所有持股化為壁紙。`);
+                                break;
+                            }
+                            case 'SUSPEND': {
+                                if (!sym || !newStocks[sym] || newStocks[sym].status !== 'active') break;
+                                newStocks[sym].status = 'suspended';
+                                newStocks[sym].price = Math.max(10, Math.floor(newStocks[sym].price * 0.7));
+                                stockEvents.push({ id: Date.now() + Math.random(), title: `🚦 ${newStocks[sym].name} 即日起停牌`, desc: evt.DESC || `${newStocks[sym].name} 被暫停交易`, _ai: true, impact: `${newStocks[sym].name} 暫時無法進行買賣` });
+                                break;
+                            }
+                            case 'REINSTATE': {
+                                if (!sym || !newStocks[sym] || newStocks[sym].status !== 'suspended') break;
+                                newStocks[sym].status = 'active';
+                                newStocks[sym].price = Math.floor(newStocks[sym].price * 1.2);
+                                stockEvents.push({ id: Date.now() + Math.random(), title: `✅ ${newStocks[sym].name} 獲準復牌`, desc: evt.DESC || `${newStocks[sym].name} 恢復正常交易`, _ai: true, impact: `${newStocks[sym].name} 恢復正常交易` });
+                                break;
+                            }
+                            case 'SURGE': {
+                                if (!sym || !newStocks[sym] || newStocks[sym].status !== 'active') break;
+                                const effect = Math.max(10, Math.min(80, parseInt(evt.EFFECT) || 30));
+                                newStocks[sym].price = Math.floor(newStocks[sym].price * (1 + effect / 100));
+                                const seS = { id: Date.now() + Math.random(), title: evt.TITLE || `📈 ${newStocks[sym].name} 重大利好`, desc: evt.DESC || `${newStocks[sym].name} 股價飆升 ${effect}%`, _ai: true, impact: `${newStocks[sym].name} 股價大漲 ${effect}%` };
+                                stockEvents.push(seS);
+                                if (!triggerEvent) triggerEvent = seS;
+                                break;
+                            }
+                            case 'CRASH': {
+                                if (!sym || !newStocks[sym] || newStocks[sym].status !== 'active') break;
+                                const effectC = Math.max(10, Math.min(80, parseInt(evt.EFFECT) || 30));
+                                newStocks[sym].price = Math.max(10, Math.floor(newStocks[sym].price * (1 - effectC / 100)));
+                                const seC = { id: Date.now() + Math.random(), title: evt.TITLE || `📉 ${newStocks[sym].name} 爆發危機`, desc: evt.DESC || `${newStocks[sym].name} 股價暴跌 ${effectC}%`, _ai: true, impact: `${newStocks[sym].name} 股價大跌 ${effectC}%` };
+                                stockEvents.push(seC);
+                                if (!triggerEvent) triggerEvent = seC;
+                                break;
+                            }
+                        }
                     }
-                }
-                // IPO: new stock listing when active count is low
-                let activeCount = Object.keys(newStocks).filter(k => newStocks[k].status === 'active').length;
-                if (activeCount < 5 && Math.random() < 0.5) {
-                    let newSym = 'ipo_' + Date.now();
-                    let newName = await genIPOCompanyName();
-                    if (!newName) {
+                } else {
+                    // Fallback: probability-based stock status changes
+                    for (const k of Object.keys(newStocks)) {
+                        let st = newStocks[k];
+                        if (st.status === 'delisted') continue;
+                        if (st.status === 'active' && Math.random() < 0.06) {
+                            st.status = 'suspended'; st.price = Math.max(10, Math.floor(st.price * 0.7));
+                            stockEvents.push({ id: Date.now() + Math.random(), title: `🚦 ${st.name} 即日起停牌`, desc: `${st.name} 因涉嫌違規操作被監管機構暫停交易，股價暴跌 30%。`, _ai: false, impact: `${st.name} 暫時無法進行買賣` });
+                        } else if (st.status === 'suspended' && Math.random() < 0.4) {
+                            st.status = 'active'; st.price = Math.floor(st.price * 1.2);
+                            stockEvents.push({ id: Date.now() + Math.random(), title: `✅ ${st.name} 獲準復牌`, desc: `${st.name} 已完成整改獲準恢復交易，復牌首日股價大漲 20%。`, _ai: false, impact: `${st.name} 恢復正常交易` });
+                        } else if (st.status === 'suspended' && Math.random() < 0.15) {
+                            st.status = 'delisted';
+                            stockEvents.push({ id: Date.now() + Math.random(), title: `🚫 ${st.name} 正式除牌`, desc: `${st.name} 因持續違規及財務狀況惡化被強制除牌，所有持股將淪為壁紙。`, _ai: false, impact: `${st.name} 永久下市，持股價值歸零` });
+                            players.forEach(p => { for (let s in p.portfolio) { if (newStocks[s] && newStocks[s].name === st.name) { p.portfolio[s].qty = 0; p.portfolio[s].avg = 0; } } });
+                            logs.push(`💸 ${st.name} 除牌，所有持股化為壁紙。`);
+                        }
+                    }
+                    let activeCount = Object.keys(newStocks).filter(k => newStocks[k].status === 'active').length;
+                    if (activeCount < 5 && Math.random() < 0.5) {
+                        let newSym = 'ipo_' + Date.now();
                         let fallbackNames = ['創科未來', '綠能動力', '元宇宙地產', 'AI驅動', '生物製藥', '太空探索', '區塊鍊金', '電芯革命', '量子信息', '深海資源'];
                         let avail = fallbackNames.filter(n => !Object.values(newStocks).some(s => s.name === n));
-                        newName = avail.length > 0 ? avail[Math.floor(Math.random() * avail.length)] : '新創企業';
+                        let newName = avail.length > 0 ? avail[Math.floor(Math.random() * avail.length)] : '新創企業';
+                        newStocks[newSym] = { name: newName, price: 80 + Math.floor(Math.random() * 120), status: 'active' };
+                        stockEvents.push({ id: Date.now() + Math.random(), title: `🚀 ${newName} 火熱上市`, desc: `${newName} 今日在交易所正式掛牌上市，發行價 $${newStocks[newSym].price}，市場反應熱烈。`, _ai: false, impact: `${newName} 已開放交易` });
                     }
-                    newStocks[newSym] = { name: newName, price: 80 + Math.floor(Math.random() * 120), status: 'active' };
-                    stockEvents.push({ id: Date.now() + Math.random(), title: `🚀 ${newName} 火熱上市`, desc: `${newName} 今日在交易所正式掛牌上市，發行價 $${newStocks[newSym].price}，市場反應熱烈。`, impact: `${newName} 已開放交易` });
                 }
                 updates.stocks = newStocks;
 
@@ -2872,9 +2948,8 @@
                 });
 
                 if (stockEvents.length > 0) {
-                    let se = stockEvents[0];
-                    logs.push(`📰 【股票事件】${se.title}`);
-                    if (!triggerEvent) triggerEvent = se;
+                    stockEvents.forEach(se => logs.push(`📰 【股票事件】${se.title}`));
+                    if (!triggerEvent) triggerEvent = stockEvents[0];
                 }
 
                 if (!triggerEvent && Math.random() < 0.3 && topMover) {
