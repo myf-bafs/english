@@ -1163,34 +1163,6 @@
             return '';
         };
 
-        const genEconomicDesc = async (cycle) => {
-            const fallback = (
-                cycle === '繁榮' ? '政府宣佈大規模量化寬鬆，市場資金氾濫。市民消費力道強勁，整體企業利潤預計大幅上揚，推動地產與股市估值攀升！' :
-                cycle === '復甦' ? '經濟逐漸走出谷底，就業率穩步回升，市場氣氛轉趨樂觀，企業開始重新規劃資本擴張。' :
-                cycle === '衰退' ? '通膨高企導致央行收緊銀根，企業獲利指引全面下調，市場流動性開始枯竭，投資者應提高警覺。' :
-                '金融風暴席捲全球！大量企業面臨破產邊緣，失業率飆升，所有資產價格暴跌，銀行放貸極度保守。'
-            );
-            const text = await _callAI('分析經濟週期', () => callGLM('你是一位財經新聞編輯，擅長用精簡的繁體中文撰寫經濟報導。只回覆新聞內容本身。', `全球經濟進入「${cycle}」期，請用 30-50 字描述這個階段的宏觀經濟狀況與市場氣氛。`));
-            if (text) return { text, fromAI: true };
-            return { text: fallback, fromAI: false };
-        };
-
-        const genTopMoverDesc = async (stockName, change, isPositive) => {
-            const fallback = isPositive
-                ? `該公司最新財報遠超市場預期，並宣佈取得劃時代的技術突破，吸引大量國際機構投資者瘋狂掃貨，股價應聲暴漲！`
-                : `內部吹哨人爆料該公司存在嚴重財務造假，管理層遭監管機構徹夜帶走調查，引發市場恐慌性拋售，股價雪崩！`;
-            const text = await _callAI(`分析${stockName}波動`, () => callGLM('你是一位財經記者，用繁體中文報導公司重大消息。只回覆新聞內容，30-50字。', `上市公司「${stockName}」股價${isPositive ? '暴漲' : '暴跌'} ${Math.abs(Math.round(change*100))}%。${isPositive ? '請描述一項重大利好消息。' : '請描述一項重大利空消息。'}`));
-            if (text) return { text, fromAI: true };
-            return { text: fallback, fromAI: false };
-        };
-
-        const genRateChangeDesc = async (newRate) => {
-            const fallback = `為了應對當前的通膨與經濟數據，中央銀行宣佈最新貨幣政策，將市場基準利率即時調整至 ${newRate}%。`;
-            const text = await _callAI('分析利率變動', () => callGLM('你是一位財經記者，用繁體中文報導央行政策。只回覆新聞內容，30-50字。', `中央銀行宣布將基準利率調整至 ${newRate}%。請描述調整原因及其經濟影響。`));
-            if (text) return { text, fromAI: true };
-            return { text: fallback, fromAI: false };
-        };
-
         const genChanceCards = async () => {
             const fallbackCards = [
                 { msg: "經濟繁榮，政府派發消費券，獲得 $500！", amt: 500, source: '本地' },
@@ -1231,27 +1203,33 @@
 活躍投資者：${players.length} 人
 上市股票：${stockSummary}
 
-根據當前市場狀況產生 0-3 個股票事件。可能的類型：
-- NEW_STOCK：新增一檔股票（附 NAME、PRICE 50~300、SECTOR）
-- DELIST：將某股票除牌（附 SYMBOL、REASON）
-- SUSPEND：暫停某股票交易（附 SYMBOL、REASON）
-- REINSTATE：讓停牌股票恢復交易（附 SYMBOL、REASON）
-- SURGE：某股票重大利好（附 SYMBOL、EFFECT 數字百分比、REASON）
-- CRASH：某股票重大利空（附 SYMBOL、EFFECT 數字百分比、REASON）
+根據當前市場狀況產生 0-4 個市場事件。可選類型：
+- ECO_CYCLE：變更經濟週期（附 NEW_CYCLE=繁榮/復甦/衰退/蕭條、DESC）
+- RATE_CHANGE：調整基準利率（附 NEW_RATE=5~25、DESC）
+- NEW_STOCK：新增一檔股票（附 NAME、PRICE 50~300、SECTOR、DESC）
+- DELIST：將某股票除牌（附 SYMBOL、REASON、DESC）
+- SUSPEND：暫停某股票交易（附 SYMBOL、REASON、DESC）
+- REINSTATE：讓停牌股票恢復交易（附 SYMBOL、REASON、DESC）
+- SURGE：某股票重大利好（附 SYMBOL、EFFECT ±10~80、TITLE、DESC）
+- CRASH：某股票重大利空（附 SYMBOL、EFFECT ±10~80、TITLE、DESC）
+
+至少產生 1 個事件，除非市場完全平靜。ECO_CYCLE 和 RATE_CHANGE 每回合最多 1 次。
 
 每個事件格式：
 ---EVENT---
 TYPE: 類型
-SYMBOL: 代號（NEW_STOCK 不需要）
+SYMBOL: 代號（NEW_STOCK/ECO_CYCLE/RATE_CHANGE 不需要）
+NEW_CYCLE: （僅 ECO_CYCLE）
+NEW_RATE: 數字（僅 RATE_CHANGE）
 NAME: （僅 NEW_STOCK）
-PRICE: （僅 NEW_STOCK，數字）
+PRICE: 數字（僅 NEW_STOCK）
 SECTOR: （僅 NEW_STOCK）
 EFFECT: ±數字（僅 SURGE/CRASH）
-TITLE: 標題（20字內）
+TITLE: 標題
 DESC: 描述（50字內）`;
-            const text = await _callAI('分析市場事件', () => callGLM(
-                '你是一個財經遊戲的市場管理員，根據市場狀況產生股票事件。嚴格按照格式輸出，不要輸出思考過程。',
-                prompt, 20000, 1500
+            const text = await _callAI('產生市場動態', () => callGLM(
+                '你是一個財經遊戲的市場管理員，負責產生所有市場動態事件。嚴格按照格式輸出，不要輸出思考過程。',
+                prompt, 20000, 1800
             ));
             if (!text) return [];
             return text.split('---EVENT---').map(block => {
@@ -1262,7 +1240,7 @@ DESC: 描述（50字內）`;
                     if (idx > 0) evt[line.slice(0, idx).trim()] = line.slice(idx + 1).trim();
                 }
                 return evt;
-            }).filter(e => e.TYPE && ['NEW_STOCK','DELIST','SUSPEND','REINSTATE','SURGE','CRASH'].includes(e.TYPE));
+            }).filter(e => e.TYPE && ['ECO_CYCLE','RATE_CHANGE','NEW_STOCK','DELIST','SUSPEND','REINSTATE','SURGE','CRASH'].includes(e.TYPE));
         };
 
         // ==========================================
@@ -2785,34 +2763,35 @@ DESC: 描述（50字內）`;
             if (nextTurnIndex > 0 && nextTurnIndex % players.length === 0) {
                 let triggerEvent = null;
 
-                if (Math.random() < 0.25) { 
-                    let currIdx = ECO_PHASES.indexOf(roomState.ecoCycle);
-                    let nextCycle = ECO_PHASES[(currIdx + 1) % ECO_PHASES.length];
-                    updates.ecoCycle = nextCycle;
-                    logs.push(`🌍 【經濟轉型】全球經濟進入『${nextCycle}』期。`);
-                    
-                    let { text: ecoDesc, fromAI: ecoFromAI } = await genEconomicDesc(nextCycle);
-                    triggerEvent = { id: Date.now(), title: `🌍 全球經濟進入『${nextCycle}』期`, desc: ecoDesc, _ai: ecoFromAI, impact: "整體租金收益及資產估值全面調整" };
-                }
-                
+                let triggerEvent = null;
                 let newStocks = {...roomState.stocks};
-                let topMover = null; let topChange = 0;
-                Object.keys(newStocks).forEach(k => {
-                    let change = (Math.random() * 0.5) - 0.25;
-                    if (updates.ecoCycle === '繁榮' || roomState.ecoCycle === '繁榮') change += 0.1;
-                    if (updates.ecoCycle === '蕭條' || roomState.ecoCycle === '蕭條') change -= 0.15;
-                    newStocks[k].price = Math.max(10, Math.floor(newStocks[k].price * (1 + change)));
-                    if (Math.abs(change) > Math.abs(topChange)) { topChange = change; topMover = k; }
-                });
-                // Normalize: ensure all stocks have a status field (migrate old rooms)
-                Object.keys(newStocks).forEach(k => { if (!newStocks[k].status) newStocks[k].status = 'active'; });
-                // AI-driven market events (stock status changes, IPO, special events)
                 let stockEvents = [];
-                const aiEvents = await genAIMarketEvents(newStocks, players, updates.ecoCycle || roomState.ecoCycle, updates.interestRate || roomState.interestRate);
+
+                // AI 主導所有市場動態
+                const aiEvents = await genAIMarketEvents(newStocks, players, roomState.ecoCycle, roomState.interestRate);
                 if (aiEvents.length > 0) {
                     for (const evt of aiEvents) {
                         const sym = evt.SYMBOL;
                         switch (evt.TYPE) {
+                            case 'ECO_CYCLE': {
+                                const cycles = ['繁榮','復甦','衰退','蕭條'];
+                                const nc = evt.NEW_CYCLE;
+                                if (cycles.includes(nc) && nc !== roomState.ecoCycle) {
+                                    updates.ecoCycle = nc;
+                                    logs.push(`🌍 【經濟轉型】${evt.DESC || `全球經濟進入『${nc}』期。`}`);
+                                    if (!triggerEvent) triggerEvent = { id: Date.now(), title: `🌍 全球經濟進入『${nc}』期`, desc: evt.DESC || `經濟週期轉變為 ${nc}。`, _ai: true, impact: '整體租金收益及資產估值全面調整' };
+                                }
+                                break;
+                            }
+                            case 'RATE_CHANGE': {
+                                const nr = parseInt(evt.NEW_RATE);
+                                if (nr >= 5 && nr <= 25 && nr !== roomState.interestRate) {
+                                    updates.interestRate = nr;
+                                    logs.push(`🏦 市場利率調整為 ${nr}%。`);
+                                    if (!triggerEvent) triggerEvent = { id: Date.now() + 2, title: `🏦 央行調整基準利率`, desc: evt.DESC || `基準利率調整至 ${nr}%。`, _ai: true, impact: '借貸成本將受直接影響' };
+                                }
+                                break;
+                            }
                             case 'NEW_STOCK': {
                                 const name = evt.NAME || '新創企業';
                                 if (Object.values(newStocks).some(s => s.name === name)) break;
@@ -2825,11 +2804,11 @@ DESC: 描述（50字內）`;
                             }
                             case 'DELIST': {
                                 if (!sym || !newStocks[sym] || newStocks[sym].status === 'delisted') break;
-                                const st = newStocks[sym];
-                                st.status = 'delisted';
-                                stockEvents.push({ id: Date.now() + Math.random(), title: `🚫 ${st.name} 正式除牌`, desc: evt.DESC || `${st.name} 被強制除牌`, _ai: true, impact: `${st.name} 永久下市，持股價值歸零` });
+                                const stD = newStocks[sym];
+                                stD.status = 'delisted';
+                                stockEvents.push({ id: Date.now() + Math.random(), title: `🚫 ${stD.name} 正式除牌`, desc: evt.DESC || `${stD.name} 被強制除牌`, _ai: true, impact: `${stD.name} 永久下市，持股價值歸零` });
                                 players.forEach(p => { if (p.portfolio[sym]) { p.portfolio[sym].qty = 0; p.portfolio[sym].avg = 0; } });
-                                logs.push(`💸 ${st.name} 除牌，所有持股化為壁紙。`);
+                                logs.push(`💸 ${stD.name} 除牌，所有持股化為壁紙。`);
                                 break;
                             }
                             case 'SUSPEND': {
@@ -2848,26 +2827,46 @@ DESC: 描述（50字內）`;
                             }
                             case 'SURGE': {
                                 if (!sym || !newStocks[sym] || newStocks[sym].status !== 'active') break;
-                                const effect = Math.max(10, Math.min(80, parseInt(evt.EFFECT) || 30));
-                                newStocks[sym].price = Math.floor(newStocks[sym].price * (1 + effect / 100));
-                                const seS = { id: Date.now() + Math.random(), title: evt.TITLE || `📈 ${newStocks[sym].name} 重大利好`, desc: evt.DESC || `${newStocks[sym].name} 股價飆升 ${effect}%`, _ai: true, impact: `${newStocks[sym].name} 股價大漲 ${effect}%` };
-                                stockEvents.push(seS);
-                                if (!triggerEvent) triggerEvent = seS;
+                                const effectS = Math.max(10, Math.min(80, parseInt(evt.EFFECT) || 30));
+                                newStocks[sym].price = Math.floor(newStocks[sym].price * (1 + effectS / 100));
+                                stockEvents.push({ id: Date.now() + Math.random(), title: evt.TITLE || `📈 ${newStocks[sym].name} 重大利好`, desc: evt.DESC || `${newStocks[sym].name} 股價飆升 ${effectS}%`, _ai: true, impact: `${newStocks[sym].name} 股價大漲 ${effectS}%` });
                                 break;
                             }
                             case 'CRASH': {
                                 if (!sym || !newStocks[sym] || newStocks[sym].status !== 'active') break;
                                 const effectC = Math.max(10, Math.min(80, parseInt(evt.EFFECT) || 30));
                                 newStocks[sym].price = Math.max(10, Math.floor(newStocks[sym].price * (1 - effectC / 100)));
-                                const seC = { id: Date.now() + Math.random(), title: evt.TITLE || `📉 ${newStocks[sym].name} 爆發危機`, desc: evt.DESC || `${newStocks[sym].name} 股價暴跌 ${effectC}%`, _ai: true, impact: `${newStocks[sym].name} 股價大跌 ${effectC}%` };
-                                stockEvents.push(seC);
-                                if (!triggerEvent) triggerEvent = seC;
+                                stockEvents.push({ id: Date.now() + Math.random(), title: evt.TITLE || `📉 ${newStocks[sym].name} 爆發危機`, desc: evt.DESC || `${newStocks[sym].name} 股價暴跌 ${effectC}%`, _ai: true, impact: `${newStocks[sym].name} 股價大跌 ${effectC}%` });
                                 break;
                             }
                         }
                     }
+                    // Stock price fluctuation based on AI-changed eco cycle
+                    let eco = updates.ecoCycle || roomState.ecoCycle;
+                    Object.keys(newStocks).forEach(k => {
+                        let change = (Math.random() * 0.5) - 0.25;
+                        if (eco === '繁榮') change += 0.1;
+                        if (eco === '蕭條') change -= 0.15;
+                        newStocks[k].price = Math.max(10, Math.floor(newStocks[k].price * (1 + change)));
+                    });
+                    Object.keys(newStocks).forEach(k => { if (!newStocks[k].status) newStocks[k].status = 'active'; });
                 } else {
-                    // Fallback: probability-based stock status changes
+                    // AI 失敗，使用機率系統（所有市場動態）
+                    if (Math.random() < 0.25) {
+                        let currIdx = ECO_PHASES.indexOf(roomState.ecoCycle);
+                        let nextCycle = ECO_PHASES[(currIdx + 1) % ECO_PHASES.length];
+                        updates.ecoCycle = nextCycle;
+                        logs.push(`🌍 【經濟轉型】全球經濟進入『${nextCycle}』期。`);
+                        if (!triggerEvent) triggerEvent = { id: Date.now(), title: `🌍 全球經濟進入『${nextCycle}』期`, desc: nextCycle === '繁榮' ? '政府宣佈大規模量化寬鬆...' : nextCycle === '復甦' ? '經濟逐漸走出谷底...' : nextCycle === '衰退' ? '通膨高企導致央行收緊銀根...' : '金融風暴席捲全球！...', _ai: false, impact: '整體租金收益及資產估值全面調整' };
+                    }
+                    Object.keys(newStocks).forEach(k => {
+                        let change = (Math.random() * 0.5) - 0.25;
+                        if (updates.ecoCycle === '繁榮' || roomState.ecoCycle === '繁榮') change += 0.1;
+                        if (updates.ecoCycle === '蕭條' || roomState.ecoCycle === '蕭條') change -= 0.15;
+                        newStocks[k].price = Math.max(10, Math.floor(newStocks[k].price * (1 + change)));
+                    });
+                    Object.keys(newStocks).forEach(k => { if (!newStocks[k].status) newStocks[k].status = 'active'; });
+                    // Fallback stock status changes
                     for (const k of Object.keys(newStocks)) {
                         let st = newStocks[k];
                         if (st.status === 'delisted') continue;
@@ -2950,27 +2949,6 @@ DESC: 描述（50字內）`;
                 if (stockEvents.length > 0) {
                     stockEvents.forEach(se => logs.push(`📰 【股票事件】${se.title}`));
                     if (!triggerEvent) triggerEvent = stockEvents[0];
-                }
-
-                if (!triggerEvent && Math.random() < 0.3 && topMover) {
-                    let s = newStocks[topMover];
-                    let isPositive = topChange > 0;
-                    let title = isPositive ? `📈 ${s.name} 宣佈重大利好` : `📉 ${s.name} 爆發經營危機`;
-                    let { text: moverDesc, fromAI: moverAI } = await genTopMoverDesc(s.name, topChange, isPositive);
-                    triggerEvent = { id: Date.now() + 1, title, desc: moverDesc, _ai: moverAI, impact: `${s.name} 股價劇烈波動 (${isPositive ? '+' : ''}${Math.round(topChange*100)}%)` };
-                }
-
-                let newRate = roomState.interestRate;
-                if(Math.random() < 0.3) {
-                    newRate = Math.max(5, Math.min(25, newRate + (Math.random()>0.5?5:-5)));
-                    if(newRate !== roomState.interestRate) {
-                        updates.interestRate = newRate;
-                        logs.push(`🏦 市場利率調整為 ${newRate}%。`);
-                        if (!triggerEvent) {
-                            let { text: rateDesc, fromAI: rateAI } = await genRateChangeDesc(newRate);
-                            triggerEvent = { id: Date.now() + 2, title: `🏦 央行調整基準利率`, desc: rateDesc, _ai: rateAI, impact: `借貸成本將受直接影響` };
-                        }
-                    }
                 }
 
                 if (triggerEvent) updates.globalEvent = triggerEvent;
