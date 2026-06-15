@@ -1206,22 +1206,25 @@
 活躍投資者：${players.length} 人
 上市股票：${stockSummary}
 
-根據當前市場狀況產生 0-4 個市場事件。可選類型：
-- ECO_CYCLE：變更經濟週期（附 NEW_CYCLE=繁榮/復甦/衰退/蕭條、DESC）
-- RATE_CHANGE：調整基準利率（附 NEW_RATE=5~25、DESC）
-- NEW_STOCK：新增一檔股票（附 NAME、PRICE 50~300、SECTOR、DESC）
-- DELIST：將某股票除牌（附 SYMBOL、REASON、DESC）
-- SUSPEND：暫停某股票交易（附 SYMBOL、REASON、DESC）
-- REINSTATE：讓停牌股票恢復交易（附 SYMBOL、REASON、DESC）
-- SURGE：某股票重大利好（附 SYMBOL、EFFECT ±10~80、TITLE、DESC）
-- CRASH：某股票重大利空（附 SYMBOL、EFFECT ±10~80、TITLE、DESC）
+產生 1-3 個市場事件。規則：
+- ECO_CYCLE 和 RATE_CHANGE 每回合最多各 1 次
+- SURGE/CRASH 選不同股票，不要一直選同一支
+- 同一回合不要對同一支股票重複出事件
 
-至少產生 1 個事件，除非市場完全平靜。ECO_CYCLE 和 RATE_CHANGE 每回合最多 1 次。
+可選類型：
+- ECO_CYCLE：變更經濟週期（NEW_CYCLE=繁榮/復甦/衰退/蕭條）
+- RATE_CHANGE：調整基準利率（NEW_RATE=5~25）
+- NEW_STOCK：新增股票（NAME、PRICE 50~300、SECTOR）
+- DELIST：股票除牌（SYMBOL）
+- SUSPEND：股票停牌（SYMBOL）
+- REINSTATE：停牌股恢復交易（SYMBOL）
+- SURGE：重大利好（SYMBOL、EFFECT ±10~80）
+- CRASH：重大利空（SYMBOL、EFFECT ±10~80）
 
 每個事件格式：
 ---EVENT---
 TYPE: 類型
-SYMBOL: 代號（NEW_STOCK/ECO_CYCLE/RATE_CHANGE 不需要）
+SYMBOL: 代號（ECO_CYCLE/RATE_CHANGE/NEW_STOCK 不需要）
 NEW_CYCLE: （僅 ECO_CYCLE）
 NEW_RATE: 數字（僅 RATE_CHANGE）
 NAME: （僅 NEW_STOCK）
@@ -1231,7 +1234,10 @@ EFFECT: ±數字（僅 SURGE/CRASH）
 TITLE: 標題
 DESC: 描述（50字內）`;
             const text = await _callAI('產生市場動態', () => callGLM(
-                '你是一個財經遊戲的市場管理員，負責產生所有市場動態事件。嚴格按照格式輸出，不要輸出思考過程。',
+                '你是一個財經遊戲的市場管理員。'
+                + '規則：每次選擇不同股票產生事件，不要重複選同一支。'
+                + '讓事件多樣化，涵蓋各種類型和不同股票。'
+                + '嚴格按照格式輸出，不要輸出思考過程。',
                 prompt, 20000, 1800
             ));
             if (!text) return [];
