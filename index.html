@@ -1115,8 +1115,6 @@
         const GLM_API_URL = 'https://open.bigmodel.cn/api/paas/v4/chat/completions';
 
         // AI 背景佇列：每 20 秒處理一個任務，顯示通知
-        let _aiQueue = [];
-        let _aiBusy = false;
         const _addAILog = async (msg) => {
             if (!currentRoomId || !roomState) return;
             try {
@@ -1125,34 +1123,15 @@
                 if (d) await update(getRoomRef(currentRoomId), { logs: [...(d.logs||[]), msg] });
             } catch(e) { console.warn('[AI-log]', e); }
         };
-        const _processAIQueue = async () => {
-            if (_aiBusy) return;
-            _aiBusy = true;
-            while (_aiQueue.length > 0) {
-                const task = _aiQueue.shift();
-                await _addAILog(`🤖 AI 正在${task.label}...`);
-                try {
-                    const result = await task.fn();
-                    if (result) await _addAILog(`🤖 ${result}`);
-                    else await _addAILog(`🤖 ${task.label}：API 暫時無法使用，保留本地內容`);
-                } catch (e) {
-                    if (e && e.message === 'RATE_LIMITED') {
-                        _aiQueue.unshift({ ...task, _retries: (task._retries||0) + 1 });
-                        if (task._retries < 3) {
-                            await _addAILog(`🤖 ${task.label}：API 速率限制，20秒後重試 (${task._retries+1}/3)`);
-                            await new Promise(r => setTimeout(r, 20000));
-                            continue;
-                        }
-                        await _addAILog(`🤖 ${task.label}：API 速率限制，已放棄`);
-                    } else {
-                        await _addAILog(`🤖 ${task.label}：錯誤 - ${e.message}`);
-                    }
-                }
-                if (_aiQueue.length > 0) await new Promise(r => setTimeout(r, 20000));
-            }
-            _aiBusy = false;
+        const _callAI = async (label, fn) => {
+            await _addAILog(`🤖 AI 正在${label}...`);
+            try {
+                const r = await fn();
+                if (r) await _addAILog(`🤖 ${r}`);
+                else await _addAILog(`🤖 ${label}：API 暫時無法使用，保留本地內容`);
+                return r;
+            } catch { return null; }
         };
-        const enqueueAI = (label, fn) => { _aiQueue.push({ label, fn }); if (!_aiBusy) _processAIQueue(); };
 
         const callGLM = async (systemPrompt, userPrompt, timeoutMs = 15000) => {
             let wasRateLimited = false;
@@ -1191,10 +1170,8 @@
                 cycle === '衰退' ? '通膨高企導致央行收緊銀根，企業獲利指引全面下調，市場流動性開始枯竭，投資者應提高警覺。' :
                 '金融風暴席捲全球！大量企業面臨破產邊緣，失業率飆升，所有資產價格暴跌，銀行放貸極度保守。'
             );
-            enqueueAI('分析經濟週期', async () => {
-                const text = await callGLM('你是一位財經新聞編輯，擅長用精簡的繁體中文撰寫經濟報導。只回覆新聞內容本身。', `全球經濟進入「${cycle}」期，請用 30-50 字描述這個階段的宏觀經濟狀況與市場氣氛。`);
-                return text || null;
-            });
+            const text = await _callAI('分析經濟週期', () => callGLM('你是一位財經新聞編輯，擅長用精簡的繁體中文撰寫經濟報導。只回覆新聞內容本身。', `全球經濟進入「${cycle}」期，請用 30-50 字描述這個階段的宏觀經濟狀況與市場氣氛。`));
+            if (text) return { text, fromAI: true };
             return { text: fallback, fromAI: false };
         };
 
@@ -1207,38 +1184,29 @@
                 eventType === 'reinstate' ? `經過整改後，${stockName} 已符合監管要求，即日起恢復正常交易，復牌首日股價大漲 20%。` :
                 `因持續違規及財務狀況惡化，${stockName} 被強制從交易所除牌，所有持股將淪為壁紙。`
             );
-            enqueueAI(`分析${stockName}事件`, async () => {
-                const text = await callGLM('你是一位財經記者，用繁體中文報導股市事件。只回覆新聞內容，30-50字。', prompt);
-                return text || null;
-            });
+            const text = await _callAI(`分析${stockName}事件`, () => callGLM('你是一位財經記者，用繁體中文報導股市事件。只回覆新聞內容，30-50字。', prompt));
+            if (text) return { text, fromAI: true };
             return { text: fallback, fromAI: false };
         };
 
         const genIPOCompanyName = async () => {
-            enqueueAI('為新股命名', async () => {
-                const text = await callGLM('你是一位企業顧問，為新創公司命名。只回覆公司名稱，2-4個繁體中文字，不要標點符號。', '請產生一個創新的香港公司名稱，適合一家即將上市的新創企業。');
-                return text || null;
-            });
-            return '';
+            const text = await _callAI('為新股命名', () => callGLM('你是一位企業顧問，為新創公司命名。只回覆公司名稱，2-4個繁體中文字，不要標點符號。', '請產生一個創新的香港公司名稱，適合一家即將上市的新創企業。'));
+            return text || '';
         };
 
         const genTopMoverDesc = async (stockName, change, isPositive) => {
             const fallback = isPositive
                 ? `該公司最新財報遠超市場預期，並宣佈取得劃時代的技術突破，吸引大量國際機構投資者瘋狂掃貨，股價應聲暴漲！`
                 : `內部吹哨人爆料該公司存在嚴重財務造假，管理層遭監管機構徹夜帶走調查，引發市場恐慌性拋售，股價雪崩！`;
-            enqueueAI(`分析${stockName}波動`, async () => {
-                const text = await callGLM('你是一位財經記者，用繁體中文報導公司重大消息。只回覆新聞內容，30-50字。', `上市公司「${stockName}」股價${isPositive ? '暴漲' : '暴跌'} ${Math.abs(Math.round(change*100))}%。${isPositive ? '請描述一項重大利好消息。' : '請描述一項重大利空消息。'}`);
-                return text || null;
-            });
+            const text = await _callAI(`分析${stockName}波動`, () => callGLM('你是一位財經記者，用繁體中文報導公司重大消息。只回覆新聞內容，30-50字。', `上市公司「${stockName}」股價${isPositive ? '暴漲' : '暴跌'} ${Math.abs(Math.round(change*100))}%。${isPositive ? '請描述一項重大利好消息。' : '請描述一項重大利空消息。'}`));
+            if (text) return { text, fromAI: true };
             return { text: fallback, fromAI: false };
         };
 
         const genRateChangeDesc = async (newRate) => {
             const fallback = `為了應對當前的通膨與經濟數據，中央銀行宣佈最新貨幣政策，將市場基準利率即時調整至 ${newRate}%。`;
-            enqueueAI('分析利率變動', async () => {
-                const text = await callGLM('你是一位財經記者，用繁體中文報導央行政策。只回覆新聞內容，30-50字。', `中央銀行宣布將基準利率調整至 ${newRate}%。請描述調整原因及其經濟影響。`);
-                return text || null;
-            });
+            const text = await _callAI('分析利率變動', () => callGLM('你是一位財經記者，用繁體中文報導央行政策。只回覆新聞內容，30-50字。', `中央銀行宣布將基準利率調整至 ${newRate}%。請描述調整原因及其經濟影響。`));
+            if (text) return { text, fromAI: true };
             return { text: fallback, fromAI: false };
         };
 
@@ -1251,21 +1219,18 @@
                 { msg: "贏得商業大獎，獲得獎金 $800！", amt: 800, source: '本地' },
                 { msg: "忘記繳納商業登記費，罰款 $500。", amt: -500, source: '本地' }
             ];
-            enqueueAI('產生機會卡', async () => {
-                const text = await callGLM('你是一位遊戲設計師。產生 6 條「機會卡」訊息（繁體中文），用於大富翁式商業遊戲。每條訊息需包含正面或負面的金錢影響（正數為獲得金錢，負數為支付金錢）。格式：每行一條「訊息|金額」。例如：\n中了彩票，獲得 $1000！|1000\n\n請確保涵蓋不同的商業情景，金額範圍在 200-1200 之間。', '請產生 6 條機會卡訊息。');
-                if (text) {
-                    const cards = text.split('\n').map(line => {
-                        const parts = line.split('|');
-                        if (parts.length === 2) {
-                            const amt = parseInt(parts[1]);
-                            if (!isNaN(amt)) return { msg: parts[0].trim(), amt, source: 'AI' };
-                        }
-                        return null;
-                    }).filter(Boolean);
-                    if (cards.length >= 4) CHANCE_CARDS = cards;
-                }
-                return text ? `已產生 ${text.split('\n').length} 張機會卡` : null;
-            });
+            const text = await _callAI('產生機會卡', () => callGLM('你是一位遊戲設計師。產生 6 條「機會卡」訊息（繁體中文），用於大富翁式商業遊戲。每條訊息需包含正面或負面的金錢影響（正數為獲得金錢，負數為支付金錢）。格式：每行一條「訊息|金額」。例如：\n中了彩票，獲得 $1000！|1000\n\n請確保涵蓋不同的商業情景，金額範圍在 200-1200 之間。', '請產生 6 條機會卡訊息。'));
+            if (text) {
+                const cards = text.split('\n').map(line => {
+                    const parts = line.split('|');
+                    if (parts.length === 2) {
+                        const amt = parseInt(parts[1]);
+                        if (!isNaN(amt)) return { msg: parts[0].trim(), amt, source: 'AI' };
+                    }
+                    return null;
+                }).filter(Boolean);
+                if (cards.length >= 4) { CHANCE_CARDS = cards; return cards; }
+            }
             return fallbackCards;
         };
         // 非同步初始化 AI 生成的機會卡（不阻塞遊戲啟動）
