@@ -1130,7 +1130,10 @@
                 if (r) await _addAILog(`🤖 ${r}`);
                 else await _addAILog(`🤖 ${label}：API 暫時無法使用，保留本地內容`);
                 return r;
-            } catch { return null; }
+            } catch (e) {
+                await _addAILog(`🤖 ${label}：錯誤 - ${e.message || e}`);
+                return null;
+            }
         };
 
         const callGLM = async (systemPrompt, userPrompt, timeoutMs = 15000, maxTokens = 1000) => {
@@ -2947,6 +2950,10 @@ DESC: 描述（50字內）`;
                 if (stockEvents.length > 0) {
                     stockEvents.forEach(se => logs.push(`📰 【股票事件】${se.title}`));
                     if (!triggerEvent) triggerEvent = stockEvents[0];
+                }
+
+                if (!triggerEvent) {
+                    triggerEvent = { id: Date.now(), title: '📊 本日市場總結', desc: '市場整體交易平穩，無重大事件發生。', _ai: false, impact: '市場表現平穩' };
                 }
 
                 if (triggerEvent) updates.globalEvent = triggerEvent;
