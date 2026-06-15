@@ -32,6 +32,16 @@
             overflow: hidden;
             height: 100dvh;
             padding: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left);
+            position: relative;
+        }
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background: url('1.png') center/contain no-repeat;
+            opacity: 0.08;
+            pointer-events: none;
+            z-index: 0;
         }
 
         /* ── 玻璃卡片（登入／大廳） ── */
