@@ -26,7 +26,7 @@
 
         body {
             font-family: 'Montserrat', 'Noto Sans HK', sans-serif;
-            background: linear-gradient(135deg, #0f172a 0%, #1e293b 45%, #064e3b 100%);
+            background: linear-gradient(135deg, #f0f4f8 0%, #e2e8f0 45%, #f8fafc 100%);
             background-attachment: fixed;
             color: #333;
             overflow: hidden;
@@ -569,7 +569,7 @@
 <body class="h-[100dvh] flex flex-col text-slate-800 selection:bg-blue-200 overflow-hidden">
 
     <!-- 頂部導航 -->
-    <header class="bg-slate-900/80 backdrop-blur-md text-white p-2 md:p-3 shadow-lg flex justify-between items-center z-20 border-b border-slate-700 shrink-0">
+    <header class="bg-white/80 backdrop-blur-md text-slate-800 p-2 md:p-3 shadow-lg flex justify-between items-center z-20 border-b border-slate-200 shrink-0">
         <div class="flex items-center gap-2 md:gap-4">
             <h1 class="text-sm md:text-2xl font-black flex items-center gap-1 md:gap-2 text-yellow-400 drop-shadow-md tracking-wide whitespace-nowrap shrink-0">
                 <span class="text-lg md:text-2xl">🏦</span> <span class="hidden sm:inline">BAFS 商業大亨</span><span class="sm:hidden">BAFS大亨</span>
@@ -581,13 +581,13 @@
         </div>
         
         <div class="hidden sm:flex items-center gap-1 md:gap-2">
-            <a href="https://myf-bafs.github.io/english/" target="_blank" class="text-[10px] md:text-xs bg-slate-700 hover:bg-slate-600 px-2 md:px-3 py-1 rounded-full border border-slate-500 transition-colors inline-flex items-center gap-1 whitespace-nowrap">
+            <a href="https://myf-bafs.github.io/english/" target="_blank" class="text-[10px] md:text-xs bg-slate-100 hover:bg-slate-200 px-2 md:px-3 py-1 rounded-full border border-slate-300 transition-colors inline-flex items-center gap-1 whitespace-nowrap">
                 <i class="fa-solid fa-gamepad"></i> <span class="hidden md:inline">Monopoly</span><span class="md:hidden">Game</span>
             </a>
         </div>
         <div id="user-info" class="hidden flex items-center gap-1 md:gap-3 shrink-0 min-w-0">
-            <div class="bg-slate-800 px-2 md:px-4 py-1 rounded-full border border-slate-600 shadow-inner text-white font-bold text-xs md:text-base max-w-[80px] md:max-w-[150px] truncate" id="display-name"></div>
-            <button onclick="window.quitGame()" class="bg-red-600 hover:bg-red-500 text-white text-xs px-2 md:px-3 py-1.5 rounded-full shadow transition-colors border border-red-400 font-bold flex items-center gap-1 whitespace-nowrap shrink-0">
+            <div class="bg-slate-100 px-2 md:px-4 py-1 rounded-full border border-slate-300 shadow-inner text-slate-800 font-bold text-xs md:text-base max-w-[80px] md:max-w-[150px] truncate" id="display-name"></div>
+            <button onclick="window.quitGame()" class="bg-red-500 hover:bg-red-400 text-white text-xs px-2 md:px-3 py-1.5 rounded-full shadow transition-colors border border-red-300 font-bold flex items-center gap-1 whitespace-nowrap shrink-0">
                 🚪 <span class="hidden sm:inline">退出遊戲</span><span class="sm:hidden">退出</span>
             </button>
         </div>
